@@ -1,0 +1,106 @@
+# Boli.pk — Single-command CEP deployment
+# Usage: docker-compose up
+# All external dependencies (PTA DIRBS, FBR NTN, payment gateway) are mocked locally.
+# No external internet required.
+
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: boli
+      POSTGRES_USER: boli
+      POSTGRES_PASSWORD: boli_dev_secret
+    volumes:
+      - ./infrastructure/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./infrastructure/postgres/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U boli"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server /usr/local/etc/redis/redis.conf
+    volumes:
+      - ./infrastructure/redis/redis.conf:/usr/local/etc/redis/redis.conf
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  centrifugo:
+    image: centrifugo/centrifugo:v5
+    environment:
+      CENTRIFUGO_TOKEN_HMAC_SECRET_KEY: "centrifugo_dev_secret"
+      CENTRIFUGO_API_KEY: "centrifugo_api_key"
+      CENTRIFUGO_REDIS_ADDRESS: "redis:6379"
+    ports:
+      - "8001:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  gateway:
+    build:
+      context: ./services/gateway
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: "postgres://boli:boli_dev_secret@postgres:5432/boli?sslmode=disable"
+      REDIS_URL: "redis:6379"
+      CENTRIFUGO_URL: "http://centrifugo:8000"
+      CENTRIFUGO_API_KEY: "centrifugo_api_key"
+      JWT_SECRET: "jwt_dev_secret_min_32_chars_long_x"
+      AI_VETTING_URL: "http://ai-vetting:8002"
+      BOOTSTRAP_SECRET: "bootstrap_dev_secret"
+      MAX_ACTIVE_LISTINGS_PER_SELLER: "5"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  ai-vetting:
+    build:
+      context: ./services/ai-vetting
+      dockerfile: Dockerfile
+    environment:
+      MOCK_DIRBS: "true"
+      MOCK_GSMA_TAC: "true"
+    ports:
+      - "8002:8002"
+
+  frontend:
+    build:
+      context: ./services/frontend
+      dockerfile: Dockerfile
+    environment:
+      NEXT_PUBLIC_API_URL: "http://localhost:8000"
+      NEXT_PUBLIC_CENTRIFUGO_URL: "ws://localhost:8001/connection/websocket"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - gateway
+
+  nginx:
+    image: nginx:alpine
+    volumes:
+      - ./infrastructure/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "80:80"
+    depends_on:
+      - gateway
+      - frontend
+
+volumes:
+  postgres_data:

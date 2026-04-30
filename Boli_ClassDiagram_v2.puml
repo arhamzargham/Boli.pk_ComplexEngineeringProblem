@@ -1,0 +1,532 @@
+@startuml Boli_Class_Diagram
+
+title Boli.pk — Complete Domain Class Diagram\nIEEE/ISO/IEC 1016-2009 · UWE Content Model (Figure 7.1)
+
+skinparam classAttributeIconSize 0
+skinparam classFontSize 11
+skinparam classFontName Arial
+skinparam classHeaderBackgroundColor #1A1A2E
+skinparam classFontColor #FFFFFF
+skinparam classBackgroundColor #FAFAFA
+skinparam classBorderColor #555555
+skinparam classBorderThickness 1.2
+skinparam ArrowColor #333333
+skinparam ArrowThickness 1.2
+skinparam NoteBackgroundColor #FFF3CD
+skinparam NoteBorderColor #E67E22
+skinparam NoteFontSize 10
+skinparam packageBackgroundColor #FAFAFA
+skinparam packageBorderThickness 1.5
+skinparam padding 4
+skinparam roundcorner 6
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+
+' ═══════════════════════════════════════════════
+' PACKAGE 1 — USER & IDENTITY
+' ═══════════════════════════════════════════════
+package "1. User & Identity" #EBF5FB {
+
+  class User <<entity>> {
+    + userId : UUID <<PK>>
+    + cnicEncrypted : BYTEA <<encrypted>>
+    + ntnEncrypted : BYTEA <<nullable>>
+    + kycTier : ENUM {BASIC | FULL}
+    + trustScore : SMALLINT <<0-100>>
+    + role : ENUM {BUYER | SELLER | ADMIN}
+    + isSellerSuspended : BOOLEAN
+    + suspensionUntil : TIMESTAMPTZ <<nullable>>
+    + isBuyerBanned : BOOLEAN
+    + accessibilityPrefs : JSONB
+    + preferredLocale : ENUM {EN | UR}
+    + createdAt : TIMESTAMPTZ <<immutable>>
+    + deletedAt : TIMESTAMPTZ <<nullable>>
+    + anonymisedUuid : UUID <<replaces PII on deletion>>
+    --
+    + calculateTrustScore() : SMALLINT
+    + anonymisePII() : void
+  }
+
+  class UserSession <<entity>> {
+    + sessionId : UUID <<PK>>
+    + userId : UUID <<FK>>
+    + deviceFingerprint : VARCHAR
+    + ipAddress : INET
+    + networkBssid : VARCHAR <<nullable>>
+    + jwtToken : TEXT
+    + expiresAt : TIMESTAMPTZ
+    + createdAt : TIMESTAMPTZ
+    --
+    + invalidate() : void
+    + isExpired() : BOOLEAN
+  }
+
+  class KycRecord <<entity>> {
+    + kycId : UUID <<PK>>
+    + userId : UUID <<FK>>
+    + cnicVerifiedAt : TIMESTAMPTZ <<nullable>>
+    + ntnVerifiedAt : TIMESTAMPTZ <<nullable>>
+    + ntnStatus : ENUM {FILER | NON_FILER | UNVERIFIED}
+    + biometricHashSha256 : CHAR(64) <<one-way hash>>
+    + verificationSource : ENUM {MOCK | NADRA_LIVE}
+    + updatedAt : TIMESTAMPTZ
+    --
+    + verifyNtn() : BOOLEAN
+    + tierUpgrade() : void
+  }
+
+  class PenaltyConsentRecord <<entity>> {
+    + consentId : UUID <<PK>>
+    + userId : UUID <<FK>>
+    + policyVersion : VARCHAR
+    + acknowledgedAt : TIMESTAMPTZ <<immutable>>
+    + ipAtConsent : INET
+  }
+
+  User "1" *-- "0..*" UserSession : maintains
+  User "1" *-- "1" KycRecord : verified by
+  User "1" *-- "0..1" PenaltyConsentRecord : acknowledges
+}
+
+' ═══════════════════════════════════════════════
+' PACKAGE 2 — LISTING & AI VETTING
+' ═══════════════════════════════════════════════
+package "2. Listing & AI Vetting" #E8F8F5 {
+
+  class Listing <<entity>> {
+    + listingId : UUID <<PK>>
+    + sellerId : UUID <<FK - User>>
+    + category : ENUM {SMARTPHONE}
+    + imei : VARCHAR(15)
+    + make : VARCHAR
+    + model : VARCHAR
+    + storageGb : SMALLINT <<nullable>>
+    + colorVariant : VARCHAR <<nullable>>
+    + conditionRating : SMALLINT <<1-10>>
+    + reservePricePaisa : BIGINT <<integer only>>
+    + ptaStatus : ENUM {REGISTERED_CLEAN | UNREGISTERED | BLACKLISTED}
+    + status : ENUM {PENDING_REVIEW | ACTIVE | SOLD | UNSOLD_EXPIRED | REJECTED}
+    + ntnRequired : BOOLEAN
+    + createdAt : TIMESTAMPTZ
+    + publishedAt : TIMESTAMPTZ <<nullable>>
+    --
+    + requiresNtn() : BOOLEAN
+    + canRelist() : BOOLEAN
+  }
+
+  class ListingImage <<entity>> {
+    + imageId : UUID <<PK>>
+    + listingId : UUID <<FK>>
+    + storageUrl : TEXT <<EXIF-stripped, public>>
+    + rawMetadataJson : JSONB <<GPS+timestamp, restricted>>
+    + uploadedAt : TIMESTAMPTZ
+    + sortOrder : SMALLINT
+    --
+    + stripExif() : void
+    + extractGpsCoordinates() : POINT
+  }
+
+  class TrustBadge <<entity>> {
+    + badgeId : UUID <<PK>>
+    + listingId : UUID <<FK, UNIQUE>>
+    + gate1LuhnPass : BOOLEAN
+    + gate2DirbsResult : ENUM {REGISTERED_CLEAN | UNREGISTERED | BLACKLISTED}
+    + gate3TacMatch : BOOLEAN
+    + check4ImageScore : SMALLINT <<0-40>>
+    + check5ConditionScore : SMALLINT <<0-30>>
+    + check6PriceScore : SMALLINT <<0-30>>
+    + compositeScore : SMALLINT <<0-100, computed>>
+    + classification : ENUM {VERIFIED | REVIEWED | PENDING_REVIEW | REJECTED}
+    + rejectionReasonCode : VARCHAR <<nullable>>
+    + priceBelowMarketFlag : BOOLEAN
+    + processedAt : TIMESTAMPTZ
+    + modelVersion : VARCHAR
+    --
+    + classify() : ENUM
+    + computeCompositeScore() : SMALLINT
+  }
+
+  class VettingRequest <<entity>> {
+    + requestId : UUID <<PK>>
+    + listingId : UUID <<FK>>
+    + status : ENUM {QUEUED | PROCESSING | COMPLETED | TIMED_OUT | FAILED}
+    + submittedAt : TIMESTAMPTZ
+    + completedAt : TIMESTAMPTZ <<nullable>>
+    + timeoutAt : TIMESTAMPTZ <<+5000ms>>
+    + attemptCount : SMALLINT
+    + degradedToManual : BOOLEAN
+    --
+    + isTimedOut() : BOOLEAN
+    + escalateToManual() : void
+  }
+
+  Listing "1" *-- "0..*" ListingImage : contains
+  Listing "1" *-- "1" TrustBadge : assigned
+  Listing "1" *-- "0..1" VettingRequest : processed by
+}
+
+' ═══════════════════════════════════════════════
+' PACKAGE 3 — AUCTION & BIDDING
+' ═══════════════════════════════════════════════
+package "3. Auction & Bidding" #FEF9E7 {
+
+  class Auction <<entity>> {
+    + auctionId : UUID <<PK>>
+    + listingId : UUID <<FK - Listing, UNIQUE>>
+    + startTime : TIMESTAMPTZ
+    + endTime : TIMESTAMPTZ
+    + reservePricePaisa : BIGINT
+    + status : ENUM {SCHEDULED | ACTIVE | CLOSED | CANCELLED}
+    + winnerBidId : UUID <<FK - Bid, nullable>>
+    + totalBidCount : INTEGER
+    + closedAt : TIMESTAMPTZ <<nullable>>
+    --
+    + close() : void
+    + determineWinner() : UUID
+    + hasBids() : BOOLEAN
+  }
+
+  class Bid <<entity>> {
+    + bidId : UUID <<PK>>
+    + auctionId : UUID <<FK>>
+    + bidderId : UUID <<FK - User>>
+    + amountPaisa : BIGINT <<raw bid>>
+    + totalWithFeePaisa : BIGINT <<amountPaisa x 1.02>>
+    + status : ENUM {PENDING | ACCEPTED | OUTBID | WINNING | VOIDED}
+    + idempotencyKey : UUID
+    + shillDetectionFlag : BOOLEAN
+    + createdAt : TIMESTAMPTZ <<ms precision>>
+    --
+    + reserve() : void
+    + void() : void
+    + isShillBid() : BOOLEAN
+  }
+
+  class BidCacheEntry <<Redis Cache>> {
+    + cacheKey : VARCHAR <<auction:{id}:highestBid>>
+    + highestBidPaisa : BIGINT
+    + highestBidderId : UUID
+    + bidCount : INTEGER
+    + ttlSeconds : INTEGER <<auction duration + 60s>>
+    + lastUpdatedAt : TIMESTAMPTZ
+    --
+    + invalidate() : void
+    + refresh() : void
+  }
+
+  class BidStreamEvent <<Redis Streams / EDA>> {
+    + streamId : VARCHAR <<Redis auto-generated>>
+    + bidId : UUID <<FK - Bid>>
+    + auctionId : UUID
+    + bidderId : UUID
+    + amountPaisa : BIGINT
+    + idempotencyKey : UUID
+    + publishedAt : TIMESTAMPTZ
+    + processedAt : TIMESTAMPTZ <<nullable>>
+    + dlqAt : TIMESTAMPTZ <<nullable, Dead Letter Queue>>
+    --
+    + acknowledge() : void
+    + moveToDlq() : void
+  }
+
+  Auction "1" o-- "0..*" Bid : receives
+  Bid "1" ..> "0..1" BidStreamEvent : published as
+  BidStreamEvent "1" ..> "1" BidCacheEntry : updates
+}
+
+' ═══════════════════════════════════════════════
+' PACKAGE 4 — FINANCIAL & LEDGER
+' ═══════════════════════════════════════════════
+package "4. Financial & Ledger" #FDEDEC {
+
+  class Wallet <<entity>> {
+    + walletId : UUID <<PK>>
+    + userId : UUID <<FK - User, UNIQUE>>
+    + availablePaisa : BIGINT <<free for bidding>>
+    + reservedPaisa : BIGINT <<committed to bids>>
+    + lockedPaisa : BIGINT <<in escrow>>
+    + totalDepositedPaisa : BIGINT
+    + dailyEscrowExposurePaisa : BIGINT <<AML 24h counter>>
+    + updatedAt : TIMESTAMPTZ
+    --
+    + reserve(amount : BIGINT) : void
+    + release(amount : BIGINT) : void
+    + lock(amount : BIGINT) : void
+    + unlock(amount : BIGINT) : void
+    + deductPenalty(amount : BIGINT) : void
+  }
+
+  note bottom of Wallet
+    INVARIANT:
+    available + reserved + locked
+    = totalDeposited AT ALL TIMES
+  end note
+
+  class TaxAccount <<entity>> {
+    + accountId : UUID <<PK>>
+    + accountType : ENUM {WHT_HOLDING | ICT_SALES_TAX |\n  PLATFORM_REVENUE | PENALTY_POOL |\n  RECONCILIATION_DUST}
+    + balancePaisa : BIGINT
+    + lastRemittedAt : TIMESTAMPTZ <<nullable>>
+    + remittanceSchedule : ENUM {MONTHLY | QUARTERLY}
+    --
+    + remit() : void
+    + getBalance() : BIGINT
+  }
+
+  class Transaction <<entity>> {
+    + transactionId : UUID <<PK>>
+    + auctionId : UUID <<FK - Auction>>
+    + buyerId : UUID <<FK - User>>
+    + sellerId : UUID <<FK - User>>
+    + listingId : UUID <<FK - Listing>>
+    + winningBidPaisa : BIGINT
+    + buyerFeePaisa : BIGINT <<bid x 0.02>>
+    + sellerFeePaisa : BIGINT <<bid x 0.02>>
+    + whtPaisa : BIGINT <<bid x 0.01>>
+    + ictTaxPaisa : BIGINT <<totalFees x 0.15>>
+    + sellerNetPaisa : BIGINT <<bid - sellerFee - wht>>
+    + platformRevenuePaisa : BIGINT <<fees - ictTax>>
+    + moneyState : ENUM {S1_UNDEPOSITED | S2_AVAILABLE |\n  S3_RESERVED | S4_LOCKED | S5_SETTLED |\n  S6_WITHDRAWN | S7_RESERVED_FROZEN |\n  S8_ESCROW_DISPUTED | S9_QUARANTINED |\n  S10_PENALTY_DEDUCTED | S11_REFUND_PENDING |\n  S12_TAX_REMITTANCE_PENDING | S13_EXPIRED}
+    + settlementHashSha256 : CHAR(64) <<nullable>>
+    + createdAt : TIMESTAMPTZ
+    + updatedAt : TIMESTAMPTZ
+    --
+    + validateZeroSum() : BOOLEAN
+    + computeSettlementHash() : CHAR(64)
+    + transitionState(newState : ENUM) : void
+  }
+
+  class LedgerEntry <<Append-Only>> {
+    + entryId : UUID <<PK>>
+    + transactionId : UUID <<FK, nullable>>
+    + fromWalletId : UUID <<FK, nullable>>
+    + toWalletId : UUID <<FK>>
+    + amountPaisa : BIGINT <<must be > 0>>
+    + entryType : ENUM {DEBIT | CREDIT}
+    + purpose : ENUM {ESCROW_LOCK | SETTLEMENT | WHT |\n  ICT_TAX | PLATFORM_FEE | REFUND |\n  PENALTY | DEPOSIT | WITHDRAWAL}
+    + previousHashSha256 : CHAR(64)
+    + currentHashSha256 : CHAR(64)
+    + createdAt : TIMESTAMPTZ <<immutable>>
+    --
+    + computeHash() : CHAR(64)
+    + verifyChain() : BOOLEAN
+  }
+
+  note bottom of LedgerEntry
+    INSERT ONLY — no UPDATE or DELETE
+    Hash chain enforced per entry
+  end note
+
+  class IdempotencyKey <<entity>> {
+    + keyId : UUID <<PK, client UUIDv4>>
+    + userId : UUID <<FK - User>>
+    + operationType : VARCHAR
+    + responsePayload : JSONB
+    + createdAt : TIMESTAMPTZ
+    + expiresAt : TIMESTAMPTZ <<+24h>>
+    --
+    + isDuplicate() : BOOLEAN
+    + getCachedResponse() : JSONB
+  }
+
+  Transaction "1" o-- "0..*" LedgerEntry : recorded in
+}
+
+' ═══════════════════════════════════════════════
+' PACKAGE 5 — ESCROW, MEETUP & SETTLEMENT
+' ═══════════════════════════════════════════════
+package "5. Escrow, Meetup & Settlement" #F0EEF8 {
+
+  class Escrow <<entity>> {
+    + escrowId : UUID <<PK>>
+    + transactionId : UUID <<FK - Transaction, UNIQUE>>
+    + amountPaisa : BIGINT <<total locked incl. buyer fee>>
+    + qrSeedEncrypted : BYTEA <<AES-256-GCM>>
+    + qrSeedTtlExpiry : TIMESTAMPTZ <<+120s>>
+    + status : ENUM {LOCKED | DISPUTED | RELEASED |\n  REFUNDED | DURESS_FROZEN}
+    + twopcPrepareAt : TIMESTAMPTZ <<nullable>>
+    + twopcCommitAt : TIMESTAMPTZ <<nullable>>
+    --
+    + generateQrSeed() : BYTEA
+    + validateQrSeed(seed : BYTEA) : BOOLEAN
+    + prepareTwopc() : BOOLEAN
+    + commitTwopc() : void
+    + rollbackTwopc() : void
+  }
+
+  class MeetupSession <<entity>> {
+    + meetupId : UUID <<PK>>
+    + transactionId : UUID <<FK - Transaction, UNIQUE>>
+    + proposedLocation : VARCHAR
+    + proposedTime : TIMESTAMPTZ <<nullable>>
+    + buyerConfirmedAt : TIMESTAMPTZ <<nullable>>
+    + sellerConfirmedAt : TIMESTAMPTZ <<nullable>>
+    + confirmedAt : TIMESTAMPTZ <<both confirmed>>
+    + imeiScannedAt : TIMESTAMPTZ <<nullable>>
+    + imeiScanResult : ENUM {PENDING | MATCH | MISMATCH}
+    + scannedImei : VARCHAR(15)
+    + qrScannedAt : TIMESTAMPTZ <<nullable>>
+    + geolocationAtScan : POINT
+    + lateNightWarningShown : BOOLEAN
+    + duressActivated : BOOLEAN <<default false>>
+    --
+    + confirmMeetup() : void
+    + recordImeiScan(imei : VARCHAR) : ENUM
+    + unlockQr() : void
+    + activateDuress() : void
+  }
+
+  note right of MeetupSession
+    INVARIANT: If imeiScanResult = MISMATCH
+    then qrScannedAt MUST remain NULL
+    (QR unlock blocked until admin resolves)
+  end note
+
+  class SettlementReceipt <<Immutable>> {
+    + receiptId : UUID <<PK>>
+    + transactionId : UUID <<FK - Transaction, UNIQUE>>
+    + buyerIdHash : CHAR(64) <<SHA-256>>
+    + sellerIdHash : CHAR(64) <<SHA-256>>
+    + listingId : UUID
+    + verifiedImei : VARCHAR(15)
+    + settlementTimestamp : TIMESTAMPTZ <<ms precision>>
+    + geolocation : POINT
+    + receiptHashSha256 : CHAR(64)
+    + platformPublicKeyRef : VARCHAR
+    --
+    + verify(publicKey : TEXT) : BOOLEAN
+    + toString() : TEXT
+  }
+
+  Escrow "1" -- "1" MeetupSession : coordinated by
+  MeetupSession "1" ..> "0..1" SettlementReceipt : generates on QR scan
+}
+
+' ═══════════════════════════════════════════════
+' PACKAGE 6 — GOVERNANCE & DISPUTES
+' ═══════════════════════════════════════════════
+package "6. Governance & Disputes" #FEF0E8 {
+
+  class Dispute <<entity>> {
+    + disputeId : UUID <<PK>>
+    + transactionId : UUID <<FK - Transaction>>
+    + raisedBy : ENUM {BUYER | SELLER | SYSTEM}
+    + disputeType : ENUM {IMEI_MISMATCH | QR_REFUSAL |\n  ITEM_NOT_AS_DESCRIBED |\n  FRAUDULENT_REVERSAL | DURESS |\n  MEETUP_FAILED}
+    + reason : TEXT
+    + evidenceFrozenAt : TIMESTAMPTZ
+    + status : ENUM {OPEN | UNDER_REVIEW |\n  RESOLVED_BUYER | RESOLVED_SELLER |\n  RESOLVED_SPLIT}
+    + adminNotes : TEXT <<nullable>>
+    + resolvedAt : TIMESTAMPTZ <<nullable>>
+    + resolverId : UUID <<FK - User admin, nullable>>
+    + buyerSharePct : SMALLINT <<nullable>>
+    + sellerSharePct : SMALLINT <<nullable>>
+    --
+    + freezeEvidence() : void
+    + resolve(verdict : ENUM) : void
+    + splitSettle(buyerPct : SMALLINT, sellerPct : SMALLINT) : void
+  }
+
+  class AdminApproval <<Maker-Checker>> {
+    + approvalId : UUID <<PK>>
+    + actionType : ENUM {MANUAL_REFUND |\n  DISPUTE_RESOLUTION |\n  PENALTY_OVERRIDE | ACCOUNT_BAN |\n  WALLET_ADJUSTMENT}
+    + initiatorId : UUID <<FK - Admin A (Maker)>>
+    + approverId : UUID <<FK - Admin B (Checker), nullable>>
+    + targetEntityId : UUID
+    + requestedAt : TIMESTAMPTZ
+    + approvedAt : TIMESTAMPTZ <<nullable>>
+    + status : ENUM {AWAITING_APPROVAL |\n  APPROVED | REJECTED | EXPIRED}
+    + cryptoSignatureMaker : TEXT
+    + cryptoSignatureChecker : TEXT <<nullable>>
+    --
+    + approve(checkerId : UUID, signature : TEXT) : void
+    + reject(checkerId : UUID, reason : TEXT) : void
+    + isExpired() : BOOLEAN
+  }
+
+  note right of AdminApproval
+    INVARIANT: initiatorId != approverId
+    Action executes ONLY when APPROVED
+    Expires after 24h if not actioned
+  end note
+
+  class Penalty <<entity>> {
+    + penaltyId : UUID <<PK>>
+    + userId : UUID <<FK - User>>
+    + transactionId : UUID <<FK, nullable>>
+    + penaltyType : ENUM {B1_GHOST |\n  B2_NOSHOWCONFIRMED |\n  B3_BAD_FAITH_QR |\n  B4A_POST_QR_FRAUD | B5_SHILL}
+    + offenceNumber : SMALLINT <<1, 2, or 3>>
+    + grossAmountPaisa : BIGINT
+    + sellerSharePaisa : BIGINT
+    + platformSharePaisa : BIGINT
+    + appliedAt : TIMESTAMPTZ
+    + consentRecordId : UUID <<FK - PenaltyConsentRecord>>
+    --
+    + calculate(bidPaisa : BIGINT, offenceNumber : SMALLINT) : BIGINT
+    + apply() : void
+  }
+
+  class SellerSuspension <<entity>> {
+    + suspensionId : UUID <<PK>>
+    + sellerId : UUID <<FK - User>>
+    + failureType : ENUM {S1_GHOST |\n  S2_NOSHOWCONFIRMED |\n  S3_WRONG_DEVICE |\n  S4_MISREPRESENTED |\n  S5_LISTING_FRAUD | S6_FAKE_NTN}
+    + offenceNumber : SMALLINT <<1, 2, or 3>>
+    + suspensionDays : SMALLINT <<7, 14, or 30>>
+    + isPermanent : BOOLEAN
+    + fbrReferralRequired : BOOLEAN
+    + appliedAt : TIMESTAMPTZ
+    + expiresAt : TIMESTAMPTZ <<nullable if permanent>>
+    + appliedByAdminId : UUID <<FK - User admin>>
+    --
+    + isActive() : BOOLEAN
+    + expire() : void
+  }
+
+  class Notification <<entity>> {
+    + notificationId : UUID <<PK>>
+    + userId : UUID <<FK - User>>
+    + type : ENUM {OUTBID | AUCTION_WON |\n  MEETUP_CONFIRM | IMEI_MATCH |\n  IMEI_MISMATCH | QR_SCANNED |\n  FUNDS_RELEASED | DISPUTE_OPENED |\n  PENALTY_APPLIED | SUSPENSION_APPLIED |\n  ADMIN_ALERT}
+    + payload : JSONB
+    + channel : ENUM {PUSH | IN_APP | SMS}
+    + status : ENUM {QUEUED | DISPATCHED | DELIVERED | FAILED}
+    + dispatchedAt : TIMESTAMPTZ <<nullable>>
+    + deliveredAt : TIMESTAMPTZ <<nullable>>
+    + createdAt : TIMESTAMPTZ
+    --
+    + dispatch() : void
+    + retry() : void
+  }
+
+  Dispute "1" *-- "1" AdminApproval : requires
+}
+
+' ═══════════════════════════════════════════════
+' CROSS-PACKAGE RELATIONSHIPS
+' ═══════════════════════════════════════════════
+
+' User → core objects
+User "1" o-- "0..*" Listing : creates
+User "1" *-- "1" Wallet : owns
+User "1" o-- "0..*" Bid : places
+User "1" o-- "0..*" Notification : receives
+User "1" o-- "0..*" Penalty : subject of
+User "1" o-- "0..*" SellerSuspension : subject of
+
+' Listing → Auction
+Listing "1" o-- "0..1" Auction : listed in
+
+' Auction → Transaction
+Auction "1" ..> "0..1" Transaction : produces on close
+
+' Transaction → Escrow & Meetup
+Transaction "1" *-- "1" Escrow : holds funds in
+Transaction "1" *-- "0..1" Dispute : escalated to
+Transaction "1" *-- "0..1" SettlementReceipt : proven by
+
+' Wallet & IdempotencyKey
+Wallet "1" o-- "0..*" LedgerEntry : referenced in
+IdempotencyKey "0..*" --o "1" User : scoped to
+
+' Penalty requires consent
+Penalty "0..*" --> "1" PenaltyConsentRecord : requires
+
+@enduml

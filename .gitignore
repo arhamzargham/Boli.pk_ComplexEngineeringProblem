@@ -1,0 +1,47 @@
+# Go
+services/gateway/bin/
+services/gateway/vendor/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+.venv/
+venv/
+env/
+.env
+dist/
+build/
+*.egg-info/
+
+# Node / Next.js
+services/frontend/node_modules/
+services/frontend/.next/
+services/frontend/out/
+services/frontend/.env.local
+services/frontend/.env.production
+
+# Environment files (never commit real secrets)
+.env
+.env.*
+!.env.example
+
+# Docker volumes
+postgres_data/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+*.swp
+*.swo

@@ -1,0 +1,394 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36" version="29.6.1">
+  <diagram id="C5RBs43oDa-KdzZeNtuy" name="Page-1">
+    <mxGraphModel dx="4033" dy="2230" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="WIyWlLk6GJQsqaUBKTNV-0" />
+        <mxCell id="WIyWlLk6GJQsqaUBKTNV-1" parent="WIyWlLk6GJQsqaUBKTNV-0" />
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-8" parent="WIyWlLk6GJQsqaUBKTNV-1" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" value="User&amp;nbsp;&lt;span style=&quot;font-family: monospace;&quot;&gt;&amp;lt;&amp;lt;entity&amp;gt;&amp;gt;&lt;/span&gt;" vertex="1">
+          <mxGeometry height="320" width="260" x="-1480" y="-980" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-9" parent="qw9z-5ScU7PbxoAU4op4-8" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;&lt;div&gt;+ userId : UUID {PK}&lt;/div&gt;&lt;div&gt;+ cnicEncrypted : BYTEA {encrypted}&lt;/div&gt;&lt;div&gt;+ ntnEncrypted : BYTEA {nullable, encrypted}&lt;/div&gt;&lt;div&gt;+ kycTier : ENUM {BASIC | FULL}&lt;/div&gt;&lt;div&gt;+ trustScore : SMALLINT {0-100}&lt;/div&gt;&lt;div&gt;+ role : ENUM {BUYER | SELLER | ADMIN}&lt;/div&gt;&lt;div&gt;+ isSellerSuspended : BOOLEAN&lt;/div&gt;&lt;div&gt;+ suspensionUntil : TIMESTAMPTZ {nullable}&lt;/div&gt;&lt;div&gt;+ isBuyerBanned : BOOLEAN&lt;/div&gt;&lt;div&gt;+ accessibilityPrefs : JSONB&lt;/div&gt;&lt;div&gt;+ preferredLocale : ENUM {EN | UR}&lt;/div&gt;&lt;div&gt;+ createdAt : TIMESTAMPTZ {immutable}&lt;/div&gt;&lt;div&gt;+ deletedAt : TIMESTAMPTZ {nullable}&lt;/div&gt;&lt;div&gt;+ anonymisedUuid : UUID {nullable}&lt;/div&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="244" width="260" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-10" parent="qw9z-5ScU7PbxoAU4op4-8" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=inherit;" value="" vertex="1">
+          <mxGeometry height="8" width="260" y="270" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-11" parent="qw9z-5ScU7PbxoAU4op4-8" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ calculateTrustScore() : SMALLINT&lt;/div&gt;&lt;div&gt;+ anonymisePII() : void&lt;/div&gt;" vertex="1">
+          <mxGeometry height="42" width="260" y="278" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-16" parent="WIyWlLk6GJQsqaUBKTNV-1" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" value="KycRecord&amp;nbsp;&lt;span style=&quot;font-family: monospace;&quot;&gt;&amp;lt;&amp;lt;entity&amp;gt;&amp;gt;&lt;/span&gt;" vertex="1">
+          <mxGeometry height="200" width="330" x="-1480" y="-570" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-17" parent="qw9z-5ScU7PbxoAU4op4-16" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ kycId : UUID {PK}&lt;/div&gt;&lt;div&gt;+ userId : UUID {FK}&lt;/div&gt;&lt;div&gt;+ cnicVerifiedAt : TIMESTAMPTZ {nullable}&lt;/div&gt;&lt;div&gt;+ ntnVerifiedAt : TIMESTAMPTZ {nullable}&lt;/div&gt;&lt;div&gt;+ ntnStatus : ENUM {FILER | NON_FILER | UNVERIFIED}&lt;/div&gt;&lt;div&gt;+ biometricHashSha256 : CHAR(64) {one-way hash}&lt;/div&gt;&lt;div&gt;+ verificationSource : ENUM {MOCK | NADRA_LIVE}&lt;/div&gt;&lt;div&gt;+ updatedAt : TIMESTAMPTZ&lt;/div&gt;" vertex="1">
+          <mxGeometry height="124" width="330" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-18" parent="qw9z-5ScU7PbxoAU4op4-16" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=inherit;" value="" vertex="1">
+          <mxGeometry height="8" width="330" y="150" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-19" parent="qw9z-5ScU7PbxoAU4op4-16" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ verifyNtn() : BOOLEAN&lt;/div&gt;&lt;div&gt;+ tierUpgrade() : void&lt;/div&gt;" vertex="1">
+          <mxGeometry height="42" width="330" y="158" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-28" parent="WIyWlLk6GJQsqaUBKTNV-1" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" value="PenaltyConsentRecord&amp;nbsp;&lt;span style=&quot;font-family: monospace;&quot;&gt;&amp;lt;&amp;lt;entity&amp;gt;&amp;gt;&lt;/span&gt;" vertex="1">
+          <mxGeometry height="152" width="270" x="-1020" y="-650" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-29" parent="qw9z-5ScU7PbxoAU4op4-28" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ consentId : UUID {PK}&lt;/div&gt;&lt;div&gt;+ userId : UUID {FK}&lt;/div&gt;&lt;div&gt;+ policyVersion : VARCHAR&lt;/div&gt;&lt;div&gt;+ acknowledgedAt : TIMESTAMPTZ {immutable}&lt;/div&gt;&lt;div&gt;+ ipAtConsent : INET&lt;/div&gt;" vertex="1">
+          <mxGeometry height="74" width="270" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-30" parent="qw9z-5ScU7PbxoAU4op4-28" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=inherit;" value="" vertex="1">
+          <mxGeometry height="18" width="270" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-31" parent="qw9z-5ScU7PbxoAU4op4-28" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="(none)" vertex="1">
+          <mxGeometry height="34" width="270" y="118" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-36" parent="WIyWlLk6GJQsqaUBKTNV-1" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" value="UserSession&amp;nbsp;&lt;span style=&quot;font-family: monospace;&quot;&gt;&amp;lt;&amp;lt;entity&amp;gt;&amp;gt;&lt;/span&gt;" vertex="1">
+          <mxGeometry height="220" width="220" x="-1060" y="-980" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-37" parent="qw9z-5ScU7PbxoAU4op4-36" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ sessionId : UUID {PK}&lt;/div&gt;&lt;div&gt;+ userId : UUID {FK}&lt;/div&gt;&lt;div&gt;+ deviceFingerprint : VARCHAR&lt;/div&gt;&lt;div&gt;+ ipAddress : INET&lt;/div&gt;&lt;div&gt;+ networkBssid : VARCHAR {nullable}&lt;/div&gt;&lt;div&gt;+ jwtToken : TEXT&lt;/div&gt;&lt;div&gt;+ expiresAt : TIMESTAMPTZ&lt;/div&gt;&lt;div&gt;+ createdAt : TIMESTAMPTZ&lt;/div&gt;" vertex="1">
+          <mxGeometry height="144" width="220" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-38" parent="qw9z-5ScU7PbxoAU4op4-36" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=inherit;" value="" vertex="1">
+          <mxGeometry height="8" width="220" y="170" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-39" parent="qw9z-5ScU7PbxoAU4op4-36" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ invalidate() : void&lt;/div&gt;&lt;div&gt;+ isExpired() : BOOLEAN&lt;/div&gt;" vertex="1">
+          <mxGeometry height="42" width="220" y="178" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-66" parent="WIyWlLk6GJQsqaUBKTNV-1" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" value="&lt;strong&gt;Transaction&lt;/strong&gt; &lt;code class=&quot;bg-text-200/5 border border-0.5 border-border-300 text-danger-000 whitespace-pre-wrap rounded-[0.4rem] px-1 py-px text-[0.9rem]&quot;&gt;&amp;lt;&amp;lt;entity&amp;gt;&amp;gt;&lt;/code&gt;" vertex="1">
+          <mxGeometry height="380" width="600" x="-520" y="450" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-67" parent="qw9z-5ScU7PbxoAU4op4-66" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ transactionId : UUID {PK}&lt;/div&gt;&lt;div&gt;+ auctionId : UUID {FK}&lt;/div&gt;&lt;div&gt;+ buyerId : UUID {FK}&lt;/div&gt;&lt;div&gt;+ sellerId : UUID {FK}&lt;/div&gt;&lt;div&gt;+ listingId : UUID {FK}&lt;/div&gt;&lt;div&gt;+ winningBidPaisa : BIGINT&lt;/div&gt;&lt;div&gt;+ buyerFeePaisa : BIGINT {bid x 0.02}&lt;/div&gt;&lt;div&gt;+ sellerFeePaisa : BIGINT {bid x 0.02}&lt;/div&gt;&lt;div&gt;+ whtPaisa : BIGINT {bid x 0.01}&lt;/div&gt;&lt;div&gt;+ ictTaxPaisa : BIGINT {totalFees x 0.15}&lt;/div&gt;&lt;div&gt;+ sellerNetPaisa : BIGINT {bid - sellerFee - wht}&lt;/div&gt;&lt;div&gt;+ platformRevenuePaisa : BIGINT {fees - ictTax}&lt;/div&gt;&lt;div&gt;+ moneyState : ENUM {S1_UNDEPOSITED | S2_AVAILABLE | S3_RESERVED | S4_LOCKED | S5_SETTLED | S6_WITHDRAWN | S7_RESERVED_FROZEN | S8_ESCROW_DISPUTED | S9_QUARANTINED | S10_PENALTY_DEDUCTED | S11_REFUND_PENDING | S12_TAX_REMITTANCE_PENDING | S13_EXPIRED}&lt;/div&gt;&lt;div&gt;+ settlementHashSha256 : CHAR(64) {nullable}&lt;/div&gt;&lt;div&gt;+ createdAt : TIMESTAMPTZ&lt;/div&gt;&lt;div&gt;+ updatedAt : TIMESTAMPTZ&lt;/div&gt;" vertex="1">
+          <mxGeometry height="284" width="600" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-68" parent="qw9z-5ScU7PbxoAU4op4-66" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=inherit;" value="" vertex="1">
+          <mxGeometry height="8" width="600" y="310" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-69" parent="qw9z-5ScU7PbxoAU4op4-66" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ validateZeroSum() : BOOLEAN&lt;/div&gt;&lt;div&gt;+ computeSettlementHash() : CHAR(64)&lt;/div&gt;&lt;div&gt;+ transitionState(newState : ENUM) : void&lt;/div&gt;" vertex="1">
+          <mxGeometry height="62" width="600" y="318" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-114" parent="WIyWlLk6GJQsqaUBKTNV-1" style="swimlane;startSize=0;fillColor=#00FF00;" value="" vertex="1">
+          <mxGeometry height="780" width="930" x="-1600" y="-1030" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-115" parent="WIyWlLk6GJQsqaUBKTNV-1" style="swimlane;startSize=0;" value="" vertex="1">
+          <mxGeometry height="850" width="1151" x="-540" y="-970" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-0" parent="qw9z-5ScU7PbxoAU4op4-115" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" value="&lt;strong&gt;ListingImage&amp;nbsp;&lt;/strong&gt;&lt;span style=&quot;font-family: monospace;&quot;&gt;&amp;lt;&amp;lt;entity&amp;gt;&amp;gt;&lt;/span&gt;" vertex="1">
+          <mxGeometry height="218" width="271" x="590" y="178" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-1" parent="qw9z-5ScU7PbxoAU4op4-0" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ imageId : UUID {PK}&lt;/div&gt;&lt;div&gt;+ listingId : UUID {FK}&lt;/div&gt;&lt;div&gt;+ storageUrl : TEXT {EXIF-stripped, public}&lt;/div&gt;&lt;div&gt;+ rawMetadataJson : JSONB {GPS+timestamp, restricted}&lt;/div&gt;&lt;div&gt;+ uploadedAt : TIMESTAMPTZ&lt;/div&gt;&lt;div&gt;+ sortOrder : SMALLINT&lt;/div&gt;" vertex="1">
+          <mxGeometry height="150" width="271" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-2" parent="qw9z-5ScU7PbxoAU4op4-0" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=inherit;" value="" vertex="1">
+          <mxGeometry height="4" width="271" y="176" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-3" parent="qw9z-5ScU7PbxoAU4op4-0" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ stripExif() : void&lt;/div&gt;&lt;div&gt;+ extractGpsCoordinates() : POINT&lt;/div&gt;" vertex="1">
+          <mxGeometry height="38" width="271" y="180" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-32" parent="qw9z-5ScU7PbxoAU4op4-115" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" value="Listing&amp;nbsp;&lt;span style=&quot;font-family: monospace;&quot;&gt;&amp;lt;&amp;lt;entity&amp;gt;&amp;gt;&lt;/span&gt;" vertex="1">
+          <mxGeometry height="288" width="451" x="20" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-33" parent="qw9z-5ScU7PbxoAU4op4-32" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ listingId : UUID {PK}&lt;/div&gt;&lt;div&gt;+ sellerId : UUID {FK}&lt;/div&gt;&lt;div&gt;+ category : ENUM {SMARTPHONE}&lt;/div&gt;&lt;div&gt;+ imei : VARCHAR(15)&lt;/div&gt;&lt;div&gt;+ make : VARCHAR&lt;/div&gt;&lt;div&gt;+ model : VARCHAR&lt;/div&gt;&lt;div&gt;+ storageGb : SMALLINT {nullable}&lt;/div&gt;&lt;div&gt;+ colorVariant : VARCHAR {nullable}&lt;/div&gt;&lt;div&gt;+ conditionRating : SMALLINT {1-10}&lt;/div&gt;&lt;div&gt;+ reservePricePaisa : BIGINT {integer only}&lt;/div&gt;&lt;div&gt;+ ptaStatus : ENUM {REGISTERED_CLEAN | UNREGISTERED | BLACKLISTED}&lt;/div&gt;&lt;div&gt;+ status : ENUM {PENDING_REVIEW | ACTIVE | SOLD | UNSOLD_EXPIRED | REJECTED}&lt;/div&gt;&lt;div&gt;+ ntnRequired : BOOLEAN&lt;/div&gt;&lt;div&gt;+ createdAt : TIMESTAMPTZ&lt;/div&gt;&lt;div&gt;+ publishedAt : TIMESTAMPTZ {nullable}&lt;/div&gt;" vertex="1">
+          <mxGeometry height="220" width="451" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-34" parent="qw9z-5ScU7PbxoAU4op4-32" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=inherit;" value="" vertex="1">
+          <mxGeometry height="4" width="451" y="246" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-35" parent="qw9z-5ScU7PbxoAU4op4-32" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ requiresNtn() : BOOLEAN&lt;/div&gt;&lt;div&gt;+ canRelist() : BOOLEAN&lt;/div&gt;" vertex="1">
+          <mxGeometry height="38" width="451" y="250" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-4" parent="qw9z-5ScU7PbxoAU4op4-115" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" value="&lt;strong&gt;ListingVetting&amp;nbsp;&lt;/strong&gt;&lt;span style=&quot;font-family: monospace;&quot;&gt;&amp;lt;&amp;lt;entity&amp;gt;&amp;gt;&lt;/span&gt;" vertex="1">
+          <mxGeometry height="380" width="510" x="20" y="450" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-5" parent="qw9z-5ScU7PbxoAU4op4-4" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="+ vettingId : UUID {PK}&lt;br&gt;+ listingId : UUID {FK, UNIQUE}&lt;br&gt;+ status : ENUM {QUEUED|PROCESSING|COMPLETED|TIMED_OUT|FAILED}&lt;br&gt;+ submittedAt : TIMESTAMPTZ&lt;br&gt;+ completedAt : TIMESTAMPTZ {nullable}&lt;br&gt;+ timeoutAt : TIMESTAMPTZ {+5000ms}&lt;br&gt;+ attemptCount : SMALLINT&lt;br&gt;+ degradedToManual : BOOLEAN&lt;br&gt;+ gate1LuhnPass : BOOLEAN {nullable until complete}&lt;br&gt;+ gate2DirbsResult : ENUM {nullable until complete}&lt;br&gt;+ gate3TacMatch : BOOLEAN {nullable until complete}&lt;br&gt;+ check4ImageScore : SMALLINT {nullable until complete}&lt;br&gt;+ check5ConditionScore : SMALLINT {nullable until complete}&lt;br&gt;+ check6PriceScore : SMALLINT {nullable until complete}&lt;br&gt;+ compositeScore : SMALLINT {nullable until complete}&lt;br&gt;+ classification : ENUM {VERIFIED|REVIEWED|PENDING_REVIEW|REJECTED|null}&lt;br&gt;+ rejectionReasonCode : VARCHAR {nullable}&lt;br&gt;+ priceBelowMarketFlag : BOOLEAN {nullable until complete}&lt;br&gt;+ modelVersion : VARCHAR {nullable until complete}&amp;nbsp;" vertex="1">
+          <mxGeometry height="284" width="510" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-6" parent="qw9z-5ScU7PbxoAU4op4-4" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=inherit;" value="" vertex="1">
+          <mxGeometry height="4" width="510" y="310" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-7" parent="qw9z-5ScU7PbxoAU4op4-4" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="+ isTimedOut() : BOOLEAN&lt;br/&gt;+ escalateToManual() : void&lt;br/&gt;+ classify() : ENUM&lt;br/&gt;+ computeCompositeScore() : SMALLINT" vertex="1">
+          <mxGeometry height="66" width="510" y="314" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-20" parent="qw9z-5ScU7PbxoAU4op4-115" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" value="&lt;strong&gt;VettingRequest&amp;nbsp;&lt;/strong&gt;&lt;span style=&quot;font-family: monospace;&quot;&gt;&amp;lt;&amp;lt;entity&amp;gt;&amp;gt;&lt;/span&gt;" vertex="1">
+          <mxGeometry height="188" width="411" x="670" y="600" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-21" parent="qw9z-5ScU7PbxoAU4op4-20" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ requestId : UUID {PK}&lt;/div&gt;&lt;div&gt;+ listingId : UUID {FK}&lt;/div&gt;&lt;div&gt;+ status : ENUM {QUEUED | PROCESSING | COMPLETED | TIMED_OUT | FAILED}&lt;/div&gt;&lt;div&gt;+ submittedAt : TIMESTAMPTZ&lt;/div&gt;&lt;div&gt;+ completedAt : TIMESTAMPTZ {nullable}&lt;/div&gt;&lt;div&gt;+ timeoutAt : TIMESTAMPTZ {+5000ms}&lt;/div&gt;&lt;div&gt;+ attemptCount : SMALLINT&lt;/div&gt;&lt;div&gt;+ degradedToManual : BOOLEAN&lt;/div&gt;" vertex="1">
+          <mxGeometry height="120" width="411" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-22" parent="qw9z-5ScU7PbxoAU4op4-20" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=inherit;" value="" vertex="1">
+          <mxGeometry height="4" width="411" y="146" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-23" parent="qw9z-5ScU7PbxoAU4op4-20" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ isTimedOut() : BOOLEAN&lt;/div&gt;&lt;div&gt;+ escalateToManual() : void&lt;/div&gt;" vertex="1">
+          <mxGeometry height="38" width="411" y="150" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-141" edge="1" parent="qw9z-5ScU7PbxoAU4op4-115" source="qw9z-5ScU7PbxoAU4op4-0" style="endArrow=diamondThin;endFill=1;endSize=24;html=1;rounded=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0.5;exitY=0;exitDx=0;exitDy=0;edgeStyle=orthogonalEdgeStyle;" target="qw9z-5ScU7PbxoAU4op4-32" value="">
+          <mxGeometry relative="1" width="160" as="geometry">
+            <Array as="points">
+              <mxPoint x="725" y="30" />
+              <mxPoint x="245" y="30" />
+            </Array>
+            <mxPoint x="100" y="30" as="sourcePoint" />
+            <mxPoint x="260" y="30" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-142" edge="1" parent="qw9z-5ScU7PbxoAU4op4-115" source="qw9z-5ScU7PbxoAU4op4-4" style="endArrow=diamondThin;endFill=1;endSize=24;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;entryX=0.499;entryY=1.005;entryDx=0;entryDy=0;entryPerimeter=0;exitX=0.5;exitY=0;exitDx=0;exitDy=0;" target="qw9z-5ScU7PbxoAU4op4-35" value="">
+          <mxGeometry relative="1" width="160" as="geometry">
+            <mxPoint x="110" y="410" as="sourcePoint" />
+            <mxPoint x="270" y="410" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-143" edge="1" parent="qw9z-5ScU7PbxoAU4op4-115" source="qw9z-5ScU7PbxoAU4op4-20" style="endArrow=diamondThin;endFill=1;endSize=24;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;entryX=0.726;entryY=0.974;entryDx=0;entryDy=0;entryPerimeter=0;exitX=0.5;exitY=0;exitDx=0;exitDy=0;" target="qw9z-5ScU7PbxoAU4op4-35" value="">
+          <mxGeometry relative="1" width="160" as="geometry">
+            <Array as="points">
+              <mxPoint x="875" y="430" />
+              <mxPoint x="347" y="430" />
+            </Array>
+            <mxPoint x="291" y="522" as="sourcePoint" />
+            <mxPoint x="290" y="400" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-117" parent="WIyWlLk6GJQsqaUBKTNV-1" style="swimlane;startSize=0;" value="" vertex="1">
+          <mxGeometry height="840" width="990" x="-1610" y="-110" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-24" parent="qw9z-5ScU7PbxoAU4op4-117" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" value="&lt;strong&gt;Auction&amp;nbsp;&lt;/strong&gt;&lt;span style=&quot;font-family: monospace;&quot;&gt;&amp;lt;&amp;lt;entity&amp;gt;&amp;gt;&lt;/span&gt;" vertex="1">
+          <mxGeometry height="240" width="380" x="50" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-25" parent="qw9z-5ScU7PbxoAU4op4-24" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ auctionId : UUID {PK}&lt;/div&gt;&lt;div&gt;+ listingId : UUID {FK, UNIQUE}&lt;/div&gt;&lt;div&gt;+ startTime : TIMESTAMPTZ&lt;/div&gt;&lt;div&gt;+ endTime : TIMESTAMPTZ&lt;/div&gt;&lt;div&gt;+ reservePricePaisa : BIGINT&lt;/div&gt;&lt;div&gt;+ status : ENUM {SCHEDULED | ACTIVE | CLOSED | CANCELLED}&lt;/div&gt;&lt;div&gt;+ winnerBidId : UUID {FK, nullable}&lt;/div&gt;&lt;div&gt;+ totalBidCount : INTEGER {denormalised}&lt;/div&gt;&lt;div&gt;+ closedAt : TIMESTAMPTZ {nullable}&lt;/div&gt;" vertex="1">
+          <mxGeometry height="144" width="380" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-26" parent="qw9z-5ScU7PbxoAU4op4-24" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=inherit;" value="" vertex="1">
+          <mxGeometry height="8" width="380" y="170" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-27" parent="qw9z-5ScU7PbxoAU4op4-24" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ close() : void&lt;/div&gt;&lt;div&gt;+ determineWinner() : UUID&lt;/div&gt;&lt;div&gt;+ hasBids() : BOOLEAN&lt;/div&gt;" vertex="1">
+          <mxGeometry height="62" width="380" y="178" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-50" parent="qw9z-5ScU7PbxoAU4op4-117" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" value="&lt;strong&gt;Bid&amp;nbsp;&lt;/strong&gt;&lt;span style=&quot;font-family: monospace;&quot;&gt;&amp;lt;&amp;lt;entity&amp;gt;&amp;gt;&lt;/span&gt;" vertex="1">
+          <mxGeometry height="240" width="420" x="520" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-51" parent="qw9z-5ScU7PbxoAU4op4-50" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ bidId : UUID {PK}&lt;/div&gt;&lt;div&gt;+ auctionId : UUID {FK}&lt;/div&gt;&lt;div&gt;+ bidderId : UUID {FK}&lt;/div&gt;&lt;div&gt;+ amountPaisa : BIGINT {raw bid}&lt;/div&gt;&lt;div&gt;+ totalWithFeePaisa : BIGINT {amountPaisa x 1.02}&lt;/div&gt;&lt;div&gt;+ status : ENUM {PENDING | ACCEPTED | OUTBID | WINNING | VOIDED}&lt;/div&gt;&lt;div&gt;+ idempotencyKey : UUID {24h cache}&lt;/div&gt;&lt;div&gt;+ shillDetectionFlag : BOOLEAN&lt;/div&gt;&lt;div&gt;+ createdAt : TIMESTAMPTZ {ms precision}&lt;/div&gt;" vertex="1">
+          <mxGeometry height="144" width="420" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-52" parent="qw9z-5ScU7PbxoAU4op4-50" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=inherit;" value="" vertex="1">
+          <mxGeometry height="8" width="420" y="170" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-53" parent="qw9z-5ScU7PbxoAU4op4-50" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ reserve() : void&lt;/div&gt;&lt;div&gt;+ void() : void&lt;/div&gt;&lt;div&gt;+ isShillBid() : BOOLEAN&lt;/div&gt;" vertex="1">
+          <mxGeometry height="62" width="420" y="178" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-118" parent="WIyWlLk6GJQsqaUBKTNV-1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Listing &amp;amp; AI Vetting" vertex="1">
+          <mxGeometry height="26" width="71" x="-570" y="-1010" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-119" parent="WIyWlLk6GJQsqaUBKTNV-1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;span style=&quot;text-wrap-mode: nowrap;&quot;&gt;User &amp;amp; Identity&lt;/span&gt;" vertex="1">
+          <mxGeometry height="30" width="100" x="-1600" y="-1100" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-120" parent="WIyWlLk6GJQsqaUBKTNV-1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Auction &amp;amp; Bidding" vertex="1">
+          <mxGeometry height="30" width="120" x="-1610" y="-140" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-123" parent="WIyWlLk6GJQsqaUBKTNV-1" style="swimlane;startSize=0;" value="" vertex="1">
+          <mxGeometry height="860" width="1300" x="-570" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-54" parent="qw9z-5ScU7PbxoAU4op4-123" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" value="&lt;strong&gt;Wallet&lt;/strong&gt; &lt;code class=&quot;bg-text-200/5 border border-0.5 border-border-300 text-danger-000 whitespace-pre-wrap rounded-[0.4rem] px-1 py-px text-[0.9rem]&quot;&gt;&amp;lt;&amp;lt;entity&amp;gt;&amp;gt;&lt;/code&gt;" vertex="1">
+          <mxGeometry height="250" width="470" x="50" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-55" parent="qw9z-5ScU7PbxoAU4op4-54" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ streamId : VARCHAR {Redis auto-generated}&lt;/div&gt;&lt;div&gt;+ bidId : UUID {FK}&lt;/div&gt;&lt;div&gt;+ auctionId : UUID&lt;/div&gt;&lt;div&gt;+ bidderId : UUID&lt;/div&gt;&lt;div&gt;+ amountPaisa : BIGINT&lt;/div&gt;&lt;div&gt;+ idempotencyKey : UUID&lt;/div&gt;&lt;div&gt;+ publishedAt : TIMESTAMPTZ&lt;/div&gt;&lt;div&gt;+ processedAt : TIMESTAMPTZ {nullable}&lt;/div&gt;&lt;div&gt;+ dlqAt : TIMESTAMPTZ {nullable, Dead Letter Queue}&lt;/div&gt;" vertex="1">
+          <mxGeometry height="134" width="470" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-56" parent="qw9z-5ScU7PbxoAU4op4-54" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=inherit;" value="" vertex="1">
+          <mxGeometry height="8" width="470" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-57" parent="qw9z-5ScU7PbxoAU4op4-54" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ reserve(amount : BIGINT) : void&lt;/div&gt;&lt;div&gt;+ release(amount : BIGINT) : void&lt;/div&gt;&lt;div&gt;+ lock(amount : BIGINT) : void&lt;/div&gt;&lt;div&gt;+ unlock(amount : BIGINT) : void&lt;/div&gt;&lt;div&gt;+ deductPenalty(amount : BIGINT) : void&lt;/div&gt;" vertex="1">
+          <mxGeometry height="82" width="470" y="168" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-62" parent="qw9z-5ScU7PbxoAU4op4-123" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" value="&lt;strong&gt;TaxAccount&lt;/strong&gt; &lt;code class=&quot;bg-text-200/5 border border-0.5 border-border-300 text-danger-000 whitespace-pre-wrap rounded-[0.4rem] px-1 py-px text-[0.9rem]&quot;&gt;&amp;lt;&amp;lt;entity&amp;gt;&amp;gt;&lt;/code&gt;" vertex="1">
+          <mxGeometry height="168" width="480" x="744" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-63" parent="qw9z-5ScU7PbxoAU4op4-62" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ accountId : UUID {PK}&lt;/div&gt;&lt;div&gt;+ accountType : ENUM {WHT_HOLDING | ICT_SALES_TAX | PLATFORM_REVENUE | PENALTY_POOL | RECONCILIATION_DUST}&lt;/div&gt;&lt;div&gt;+ balancePaisa : BIGINT&lt;/div&gt;&lt;div&gt;+ lastRemittedAt : TIMESTAMPTZ {nullable}&lt;/div&gt;&lt;div&gt;+ remittanceSchedule : ENUM {MONTHLY | QUARTERLY}&lt;/div&gt;" vertex="1">
+          <mxGeometry height="94" width="480" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-64" parent="qw9z-5ScU7PbxoAU4op4-62" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=inherit;" value="" vertex="1">
+          <mxGeometry height="8" width="480" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-65" parent="qw9z-5ScU7PbxoAU4op4-62" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ remit() : void&lt;/div&gt;&lt;div&gt;+ getBalance() : BIGINT&lt;/div&gt;" vertex="1">
+          <mxGeometry height="40" width="480" y="128" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-125" parent="qw9z-5ScU7PbxoAU4op4-123" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" value="&lt;strong&gt;LedgerEntry&lt;/strong&gt; &lt;code class=&quot;bg-text-200/5 border border-0.5 border-border-300 text-danger-000 whitespace-pre-wrap rounded-[0.4rem] px-1 py-px text-[0.9rem]&quot;&gt;&amp;lt;&amp;lt;Append-Only&amp;gt;&amp;gt;&lt;/code&gt;" vertex="1">
+          <mxGeometry height="250" width="500" x="760" y="580" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-126" parent="qw9z-5ScU7PbxoAU4op4-125" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ entryId : UUID {PK}&lt;/div&gt;&lt;div&gt;+ transactionId : UUID {FK, nullable}&lt;/div&gt;&lt;div&gt;+ fromWalletId : UUID {nullable}&lt;/div&gt;&lt;div&gt;+ toWalletId : UUID {FK}&lt;/div&gt;&lt;div&gt;+ amountPaisa : BIGINT {must be &amp;gt; 0}&lt;/div&gt;&lt;div&gt;+ entryType : ENUM {DEBIT | CREDIT}&lt;/div&gt;&lt;div&gt;+ purpose : ENUM {ESCROW_LOCK | SETTLEMENT | WHT | ICT_TAX | PLATFORM_FEE | REFUND | PENALTY | DEPOSIT | WITHDRAWAL}&lt;/div&gt;&lt;div&gt;+ previousHashSha256 : CHAR(64)&lt;/div&gt;&lt;div&gt;+ currentHashSha256 : CHAR(64)&lt;/div&gt;&lt;div&gt;+ createdAt : TIMESTAMPTZ {immutable}&lt;/div&gt;" vertex="1">
+          <mxGeometry height="174" width="500" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-127" parent="qw9z-5ScU7PbxoAU4op4-125" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=inherit;" value="" vertex="1">
+          <mxGeometry height="8" width="500" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-128" parent="qw9z-5ScU7PbxoAU4op4-125" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ computeHash() : CHAR(64)&lt;/div&gt;&lt;div&gt;+ verifyChain() : BOOLEAN&lt;/div&gt;" vertex="1">
+          <mxGeometry height="42" width="500" y="208" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-124" parent="WIyWlLk6GJQsqaUBKTNV-1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Financial &amp;amp; Ledger" vertex="1">
+          <mxGeometry height="30" width="110" x="-570" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-130" parent="WIyWlLk6GJQsqaUBKTNV-1" style="swimlane;startSize=0;" value="" vertex="1">
+          <mxGeometry height="720" width="990" x="664" y="-990" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-73" parent="qw9z-5ScU7PbxoAU4op4-130" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" value="&lt;strong&gt;MeetupSession&lt;/strong&gt; &lt;code class=&quot;bg-text-200/5 border border-0.5 border-border-300 text-danger-000 whitespace-pre-wrap rounded-[0.4rem] px-1 py-px text-[0.9rem]&quot;&gt;&amp;lt;&amp;lt;entity&amp;gt;&amp;gt;&lt;/code&gt;" vertex="1">
+          <mxGeometry height="320" width="410" x="46" y="360" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-74" parent="qw9z-5ScU7PbxoAU4op4-73" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ meetupId : UUID {PK}&lt;/div&gt;&lt;div&gt;+ transactionId : UUID {FK, UNIQUE}&lt;/div&gt;&lt;div&gt;+ proposedLocation : VARCHAR&lt;/div&gt;&lt;div&gt;+ proposedTime : TIMESTAMPTZ {nullable}&lt;/div&gt;&lt;div&gt;+ buyerConfirmedAt : TIMESTAMPTZ {nullable}&lt;/div&gt;&lt;div&gt;+ sellerConfirmedAt : TIMESTAMPTZ {nullable}&lt;/div&gt;&lt;div&gt;+ confirmedAt : TIMESTAMPTZ {both confirmed}&lt;/div&gt;&lt;div&gt;+ imeiScannedAt : TIMESTAMPTZ {nullable}&lt;/div&gt;&lt;div&gt;+ imeiScanResult : ENUM {PENDING | MATCH | MISMATCH}&lt;/div&gt;&lt;div&gt;+ scannedImei : VARCHAR(15) {captured by app}&lt;/div&gt;&lt;div&gt;+ qrScannedAt : TIMESTAMPTZ {nullable}&lt;/div&gt;&lt;div&gt;+ geolocationAtScan : POINT {nullable}&lt;/div&gt;&lt;div&gt;+ lateNightWarningShown : BOOLEAN&lt;/div&gt;&lt;div&gt;+ duressActivated : BOOLEAN {default false}&lt;/div&gt;" vertex="1">
+          <mxGeometry height="214" width="410" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-75" parent="qw9z-5ScU7PbxoAU4op4-73" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=inherit;" value="" vertex="1">
+          <mxGeometry height="8" width="410" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-76" parent="qw9z-5ScU7PbxoAU4op4-73" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ confirmMeetup() : void&lt;/div&gt;&lt;div&gt;+ recordImeiScan(imei : VARCHAR) : ENUM&lt;/div&gt;&lt;div&gt;+ unlockQr() : void&lt;/div&gt;&lt;div&gt;+ activateDuress() : void&lt;/div&gt;" vertex="1">
+          <mxGeometry height="72" width="410" y="248" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-77" parent="qw9z-5ScU7PbxoAU4op4-130" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" value="&lt;strong&gt;SettlementReceipt&lt;/strong&gt; &lt;code class=&quot;bg-text-200/5 border border-0.5 border-border-300 text-danger-000 whitespace-pre-wrap rounded-[0.4rem] px-1 py-px text-[0.9rem]&quot;&gt;&amp;lt;&amp;lt;Immutable&amp;gt;&amp;gt;&lt;/code&gt;" vertex="1">
+          <mxGeometry height="230" width="340" x="577" y="245" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-78" parent="qw9z-5ScU7PbxoAU4op4-77" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ receiptId : UUID {PK}&lt;/div&gt;&lt;div&gt;+ transactionId : UUID {FK, UNIQUE}&lt;/div&gt;&lt;div&gt;+ buyerIdHash : CHAR(64) {SHA-256}&lt;/div&gt;&lt;div&gt;+ sellerIdHash : CHAR(64) {SHA-256}&lt;/div&gt;&lt;div&gt;+ listingId : UUID&lt;/div&gt;&lt;div&gt;+ verifiedImei : VARCHAR(15)&lt;/div&gt;&lt;div&gt;+ settlementTimestamp : TIMESTAMPTZ {ms precision}&lt;/div&gt;&lt;div&gt;+ geolocation : POINT&lt;/div&gt;&lt;div&gt;+ receiptHashSha256 : CHAR(64)&lt;/div&gt;&lt;div&gt;+ platformPublicKeyRef : VARCHAR&lt;/div&gt;" vertex="1">
+          <mxGeometry height="154" width="340" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-79" parent="qw9z-5ScU7PbxoAU4op4-77" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=inherit;" value="" vertex="1">
+          <mxGeometry height="8" width="340" y="180" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-80" parent="qw9z-5ScU7PbxoAU4op4-77" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ verify(publicKey : TEXT) : BOOLEAN&lt;/div&gt;&lt;div&gt;+ toString() : TEXT&lt;/div&gt;" vertex="1">
+          <mxGeometry height="42" width="340" y="188" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-81" parent="qw9z-5ScU7PbxoAU4op4-130" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" value="&lt;strong&gt;Escrow&lt;/strong&gt; &lt;code class=&quot;bg-text-200/5 border border-0.5 border-border-300 text-danger-000 whitespace-pre-wrap rounded-[0.4rem] px-1 py-px text-[0.9rem]&quot;&gt;&amp;lt;&amp;lt;entity&amp;gt;&amp;gt;&lt;/code&gt;" vertex="1">
+          <mxGeometry height="260" width="500" x="46" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-82" parent="qw9z-5ScU7PbxoAU4op4-81" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ escrowId : UUID {PK}&lt;/div&gt;&lt;div&gt;+ transactionId : UUID {FK, UNIQUE}&lt;/div&gt;&lt;div&gt;+ amountPaisa : BIGINT {total locked incl. buyer fee}&lt;/div&gt;&lt;div&gt;+ qrSeedEncrypted : BYTEA {AES-256-GCM}&lt;/div&gt;&lt;div&gt;+ qrSeedTtlExpiry : TIMESTAMPTZ {+120s from generation}&lt;/div&gt;&lt;div&gt;+ status : ENUM {LOCKED | DISPUTED | RELEASED | REFUNDED | DURESS_FROZEN}&lt;/div&gt;&lt;div&gt;+ twopcPrepareAt : TIMESTAMPTZ {nullable}&lt;/div&gt;&lt;div&gt;+ twopcCommitAt : TIMESTAMPTZ {nullable}&lt;/div&gt;" vertex="1">
+          <mxGeometry height="144" width="500" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-83" parent="qw9z-5ScU7PbxoAU4op4-81" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=inherit;" value="" vertex="1">
+          <mxGeometry height="8" width="500" y="170" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-84" parent="qw9z-5ScU7PbxoAU4op4-81" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ generateQrSeed() : BYTEA&lt;/div&gt;&lt;div&gt;+ validateQrSeed(seed : BYTEA) : BOOLEAN&lt;/div&gt;&lt;div&gt;+ prepareTwopc() : BOOLEAN&lt;/div&gt;&lt;div&gt;+ commitTwopc() : void&lt;/div&gt;&lt;div&gt;+ rollbackTwopc() : void&lt;/div&gt;" vertex="1">
+          <mxGeometry height="82" width="500" y="178" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-131" parent="WIyWlLk6GJQsqaUBKTNV-1" style="swimlane;startSize=0;" value="" vertex="1">
+          <mxGeometry height="1314" width="1380" x="827" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-85" parent="qw9z-5ScU7PbxoAU4op4-131" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" value="&lt;strong&gt;Dispute&lt;/strong&gt; &lt;code class=&quot;bg-text-200/5 border border-0.5 border-border-300 text-danger-000 whitespace-pre-wrap rounded-[0.4rem] px-1 py-px text-[0.9rem]&quot;&gt;&amp;lt;&amp;lt;entity&amp;gt;&amp;gt;&lt;/code&gt;" vertex="1">
+          <mxGeometry height="310" width="510" x="620" y="72" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-86" parent="qw9z-5ScU7PbxoAU4op4-85" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ disputeId : UUID {PK}&lt;/div&gt;&lt;div&gt;+ transactionId : UUID {FK}&lt;/div&gt;&lt;div&gt;+ raisedBy : ENUM {BUYER | SELLER | SYSTEM}&lt;/div&gt;&lt;div&gt;+ disputeType : ENUM {IMEI_MISMATCH | QR_REFUSAL | ITEM_NOT_AS_DESCRIBED | FRAUDULENT_REVERSAL | DURESS | MEETUP_FAILED}&lt;/div&gt;&lt;div&gt;+ reason : TEXT&lt;/div&gt;&lt;div&gt;+ evidenceFrozenAt : TIMESTAMPTZ {set on creation}&lt;/div&gt;&lt;div&gt;+ status : ENUM {OPEN | UNDER_REVIEW | RESOLVED_BUYER | RESOLVED_SELLER | RESOLVED_SPLIT}&lt;/div&gt;&lt;div&gt;+ adminNotes : TEXT {nullable}&lt;/div&gt;&lt;div&gt;+ resolvedAt : TIMESTAMPTZ {nullable}&lt;/div&gt;&lt;div&gt;+ resolverId : UUID {FK admin, nullable}&lt;/div&gt;&lt;div&gt;+ buyerSharePct : SMALLINT {nullable}&lt;/div&gt;&lt;div&gt;+ sellerSharePct : SMALLINT {nullable}&lt;/div&gt;" vertex="1">
+          <mxGeometry height="214" width="510" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-87" parent="qw9z-5ScU7PbxoAU4op4-85" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=inherit;" value="" vertex="1">
+          <mxGeometry height="8" width="510" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-88" parent="qw9z-5ScU7PbxoAU4op4-85" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ freezeEvidence() : void&lt;/div&gt;&lt;div&gt;+ resolve(verdict : ENUM) : void&lt;/div&gt;&lt;div&gt;+ splitSettle(buyerPct : SMALLINT, sellerPct : SMALLINT) : void&lt;/div&gt;" vertex="1">
+          <mxGeometry height="62" width="510" y="248" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-89" parent="qw9z-5ScU7PbxoAU4op4-131" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" value="&lt;strong&gt;AdminApproval&lt;/strong&gt; &lt;code class=&quot;bg-text-200/5 border border-0.5 border-border-300 text-danger-000 whitespace-pre-wrap rounded-[0.4rem] px-1 py-px text-[0.9rem]&quot;&gt;&amp;lt;&amp;lt;Maker-Checker&amp;gt;&amp;gt;&lt;/code&gt;" vertex="1">
+          <mxGeometry height="260" width="530" x="20" y="72" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-90" parent="qw9z-5ScU7PbxoAU4op4-89" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ approvalId : UUID {PK}&lt;/div&gt;&lt;div&gt;+ actionType : ENUM {MANUAL_REFUND | DISPUTE_RESOLUTION | PENALTY_OVERRIDE | ACCOUNT_BAN | WALLET_ADJUSTMENT}&lt;/div&gt;&lt;div&gt;+ initiatorId : UUID {FK - Admin A Maker}&lt;/div&gt;&lt;div&gt;+ approverId : UUID {FK - Admin B Checker, nullable}&lt;/div&gt;&lt;div&gt;+ targetEntityId : UUID&lt;/div&gt;&lt;div&gt;+ requestedAt : TIMESTAMPTZ&lt;/div&gt;&lt;div&gt;+ approvedAt : TIMESTAMPTZ {nullable}&lt;/div&gt;&lt;div&gt;+ status : ENUM {AWAITING_APPROVAL | APPROVED | REJECTED | EXPIRED}&lt;/div&gt;&lt;div&gt;+ cryptoSignatureMaker : TEXT&lt;/div&gt;&lt;div&gt;+ cryptoSignatureChecker : TEXT {nullable}&lt;/div&gt;" vertex="1">
+          <mxGeometry height="174" width="530" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-91" parent="qw9z-5ScU7PbxoAU4op4-89" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=inherit;" value="" vertex="1">
+          <mxGeometry height="8" width="530" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-92" parent="qw9z-5ScU7PbxoAU4op4-89" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ approve(checkerId : UUID, signature : TEXT) : void&lt;/div&gt;&lt;div&gt;+ reject(checkerId : UUID, reason : TEXT) : void&lt;/div&gt;&lt;div&gt;+ isExpired() : BOOLEAN&lt;/div&gt;" vertex="1">
+          <mxGeometry height="52" width="530" y="208" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-93" parent="qw9z-5ScU7PbxoAU4op4-131" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" value="&lt;strong&gt;Penalty&lt;/strong&gt; &lt;code class=&quot;bg-text-200/5 border border-0.5 border-border-300 text-danger-000 whitespace-pre-wrap rounded-[0.4rem] px-1 py-px text-[0.9rem]&quot;&gt;&amp;lt;&amp;lt;entity&amp;gt;&amp;gt;&lt;/code&gt;" vertex="1">
+          <mxGeometry height="250" width="490" x="763" y="550" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-94" parent="qw9z-5ScU7PbxoAU4op4-93" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ penaltyId : UUID {PK}&lt;/div&gt;&lt;div&gt;+ userId : UUID {FK}&lt;/div&gt;&lt;div&gt;+ transactionId : UUID {FK, nullable}&lt;/div&gt;&lt;div&gt;+ penaltyType : ENUM {B1_GHOST | B2_NOSHOWCONFIRMED | B3_BAD_FAITH_QR | B4A_POST_QR_FRAUD | B5_SHILL}&lt;/div&gt;&lt;div&gt;+ offenceNumber : SMALLINT {1, 2, or 3}&lt;/div&gt;&lt;div&gt;+ grossAmountPaisa : BIGINT&lt;/div&gt;&lt;div&gt;+ sellerSharePaisa : BIGINT&lt;/div&gt;&lt;div&gt;+ platformSharePaisa : BIGINT&lt;/div&gt;&lt;div&gt;+ appliedAt : TIMESTAMPTZ&lt;/div&gt;&lt;div&gt;+ consentRecordId : UUID {FK}&lt;/div&gt;" vertex="1">
+          <mxGeometry height="174" width="490" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-95" parent="qw9z-5ScU7PbxoAU4op4-93" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=inherit;" value="" vertex="1">
+          <mxGeometry height="8" width="490" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-96" parent="qw9z-5ScU7PbxoAU4op4-93" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ calculate(bidPaisa : BIGINT, offenceNumber : SMALLINT) : BIGINT&lt;/div&gt;&lt;div&gt;+ apply() : void&lt;/div&gt;" vertex="1">
+          <mxGeometry height="42" width="490" y="208" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-97" edge="1" parent="qw9z-5ScU7PbxoAU4op4-93" source="qw9z-5ScU7PbxoAU4op4-94" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" target="qw9z-5ScU7PbxoAU4op4-94">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-98" parent="qw9z-5ScU7PbxoAU4op4-131" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" value="&lt;strong&gt;SellerSuspension&lt;/strong&gt; &lt;code class=&quot;bg-text-200/5 border border-0.5 border-border-300 text-danger-000 whitespace-pre-wrap rounded-[0.4rem] px-1 py-px text-[0.9rem]&quot;&gt;&amp;lt;&amp;lt;entity&amp;gt;&amp;gt;&lt;/code&gt;" vertex="1">
+          <mxGeometry height="250" width="560" x="383" y="960" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-99" parent="qw9z-5ScU7PbxoAU4op4-98" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ suspensionId : UUID {PK}&lt;/div&gt;&lt;div&gt;+ sellerId : UUID {FK}&lt;/div&gt;&lt;div&gt;+ failureType : ENUM {S1_GHOST | S2_NOSHOWCONFIRMED | S3_WRONG_DEVICE | S4_MISREPRESENTED | S5_LISTING_FRAUD | S6_FAKE_NTN}&lt;/div&gt;&lt;div&gt;+ offenceNumber : SMALLINT {1, 2, or 3}&lt;/div&gt;&lt;div&gt;+ suspensionDays : SMALLINT {7, 14, or 30}&lt;/div&gt;&lt;div&gt;+ isPermanent : BOOLEAN&lt;/div&gt;&lt;div&gt;+ fbrReferralRequired : BOOLEAN {true for S6}&lt;/div&gt;&lt;div&gt;+ appliedAt : TIMESTAMPTZ&lt;/div&gt;&lt;div&gt;+ expiresAt : TIMESTAMPTZ {nullable if permanent}&lt;/div&gt;&lt;div&gt;+ appliedByAdminId : UUID {FK admin}&lt;/div&gt;" vertex="1">
+          <mxGeometry height="174" width="560" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-100" parent="qw9z-5ScU7PbxoAU4op4-98" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=inherit;" value="" vertex="1">
+          <mxGeometry height="8" width="560" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-101" parent="qw9z-5ScU7PbxoAU4op4-98" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ isActive() : BOOLEAN&lt;/div&gt;&lt;div&gt;+ expire() : void&lt;/div&gt;" vertex="1">
+          <mxGeometry height="42" width="560" y="208" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-102" parent="qw9z-5ScU7PbxoAU4op4-131" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" value="&lt;strong&gt;Notification&lt;/strong&gt; &lt;code class=&quot;bg-text-200/5 border border-0.5 border-border-300 text-danger-000 whitespace-pre-wrap rounded-[0.4rem] px-1 py-px text-[0.9rem]&quot;&gt;&amp;lt;&amp;lt;entity&amp;gt;&amp;gt;&lt;/code&gt;" vertex="1">
+          <mxGeometry height="260" width="460" x="40" y="527" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-103" parent="qw9z-5ScU7PbxoAU4op4-102" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ notificationId : UUID {PK}&lt;/div&gt;&lt;div&gt;+ userId : UUID {FK}&lt;/div&gt;&lt;div&gt;+ type : ENUM {OUTBID | AUCTION_WON | MEETUP_CONFIRM | IMEI_MATCH | IMEI_MISMATCH | QR_SCANNED | FUNDS_RELEASED | DISPUTE_OPENED | PENALTY_APPLIED | SUSPENSION_APPLIED | ADMIN_ALERT}&lt;/div&gt;&lt;div&gt;+ payload : JSONB&lt;/div&gt;&lt;div&gt;+ channel : ENUM {PUSH | IN_APP | SMS}&lt;/div&gt;&lt;div&gt;+ status : ENUM {QUEUED | DISPATCHED | DELIVERED | FAILED}&lt;/div&gt;&lt;div&gt;+ dispatchedAt : TIMESTAMPTZ {nullable}&lt;/div&gt;&lt;div&gt;+ deliveredAt : TIMESTAMPTZ {nullable}&lt;/div&gt;&lt;div&gt;+ createdAt : TIMESTAMPTZ&lt;/div&gt;" vertex="1">
+          <mxGeometry height="184" width="460" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-104" parent="qw9z-5ScU7PbxoAU4op4-102" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=inherit;" value="" vertex="1">
+          <mxGeometry height="8" width="460" y="210" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-105" parent="qw9z-5ScU7PbxoAU4op4-102" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ dispatch() : void&lt;/div&gt;&lt;div&gt;+ retry() : void&lt;/div&gt;" vertex="1">
+          <mxGeometry height="42" width="460" y="218" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-132" parent="WIyWlLk6GJQsqaUBKTNV-1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Escrow, Meetup &amp;amp; Settlement" vertex="1">
+          <mxGeometry height="30" width="160" x="664" y="-1020" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-133" parent="WIyWlLk6GJQsqaUBKTNV-1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Governance &amp;amp; Disputes" vertex="1">
+          <mxGeometry height="30" width="150" x="827" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-137" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="qw9z-5ScU7PbxoAU4op4-37" style="endArrow=diamondThin;endFill=1;endSize=24;html=1;rounded=0;entryX=0.75;entryY=0;entryDx=0;entryDy=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;" target="qw9z-5ScU7PbxoAU4op4-8" value="">
+          <mxGeometry relative="1" width="160" as="geometry">
+            <Array as="points">
+              <mxPoint x="-1140" y="-880" />
+              <mxPoint x="-1140" y="-1020" />
+              <mxPoint x="-1285" y="-1020" />
+            </Array>
+            <mxPoint x="-1300" y="-1010" as="sourcePoint" />
+            <mxPoint x="-1140" y="-1010" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-138" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="qw9z-5ScU7PbxoAU4op4-54" style="endArrow=diamondThin;endFill=1;endSize=24;html=1;rounded=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0.5;exitY=0;exitDx=0;exitDy=0;edgeStyle=orthogonalEdgeStyle;" target="qw9z-5ScU7PbxoAU4op4-8" value="">
+          <mxGeometry relative="1" width="160" as="geometry">
+            <Array as="points">
+              <mxPoint x="-285" y="-50" />
+              <mxPoint x="-590" y="-50" />
+              <mxPoint x="-590" y="-1050" />
+              <mxPoint x="-1350" y="-1050" />
+            </Array>
+            <mxPoint x="-1190" y="-730" as="sourcePoint" />
+            <mxPoint x="-1030" y="-730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-140" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="qw9z-5ScU7PbxoAU4op4-29" style="endArrow=diamondThin;endFill=1;endSize=24;html=1;rounded=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;" target="qw9z-5ScU7PbxoAU4op4-9" value="">
+          <mxGeometry relative="1" width="160" as="geometry">
+            <Array as="points">
+              <mxPoint x="-1140" y="-587" />
+              <mxPoint x="-1140" y="-710" />
+              <mxPoint x="-1140" y="-832" />
+            </Array>
+            <mxPoint x="-940" y="-650" as="sourcePoint" />
+            <mxPoint x="-780" y="-650" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-144" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="qw9z-5ScU7PbxoAU4op4-88" style="endArrow=diamondThin;endFill=1;endSize=24;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;exitX=0.223;exitY=0.989;exitDx=0;exitDy=0;exitPerimeter=0;" value="">
+          <mxGeometry relative="1" width="160" as="geometry">
+            <Array as="points">
+              <mxPoint x="1561" y="980" />
+              <mxPoint x="-220" y="980" />
+            </Array>
+            <mxPoint x="80" y="920" as="sourcePoint" />
+            <mxPoint x="-220" y="830" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="qw9z-5ScU7PbxoAU4op4-139" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="qw9z-5ScU7PbxoAU4op4-16" style="endArrow=diamondThin;endFill=1;endSize=24;html=1;rounded=0;exitX=0.5;exitY=0;exitDx=0;exitDy=0;" target="qw9z-5ScU7PbxoAU4op4-11" value="">
+          <mxGeometry relative="1" width="160" as="geometry">
+            <Array as="points">
+              <mxPoint x="-1315" y="-570" />
+              <mxPoint x="-1315" y="-610" />
+              <mxPoint x="-1350" y="-610" />
+            </Array>
+            <mxPoint x="-1510" y="-620" as="sourcePoint" />
+            <mxPoint x="-1350" y="-620" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

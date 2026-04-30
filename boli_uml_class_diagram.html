@@ -1,0 +1,464 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--c1:#1A1A2E;--border:var(--color-border-tertiary)}
+.diagram{padding:1rem 0;font-family:var(--font-mono);font-size:11px}
+.legend{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;font-family:var(--font-sans);font-size:12px}
+.leg{padding:3px 10px;border-radius:10px;font-weight:500;cursor:pointer;border:1.5px solid transparent;transition:all .15s}
+.leg.on{border-color:currentColor;font-weight:700}
+.groups-wrap{display:flex;flex-direction:column;gap:20px}
+.group{border-radius:10px;padding:12px;border:1.5px solid}
+.group-title{font-family:var(--font-sans);font-size:12px;font-weight:700;margin-bottom:10px;letter-spacing:.04em;text-transform:uppercase}
+.classes-row{display:flex;flex-wrap:wrap;gap:10px}
+.uml-class{border:1.5px solid var(--color-border-primary);border-radius:6px;min-width:220px;max-width:260px;background:var(--color-background-primary);flex:1 1 220px}
+.uml-head{padding:6px 10px;text-align:center;border-radius:4px 4px 0 0}
+.uml-head .name{font-family:var(--font-sans);font-size:12px;font-weight:700;color:#fff}
+.uml-head .stereo{font-family:var(--font-sans);font-size:10px;color:rgba(255,255,255,0.75);font-style:italic}
+.uml-section{border-top:1px solid var(--color-border-tertiary);padding:5px 8px}
+.uml-attr{font-size:10px;color:var(--color-text-secondary);padding:1px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.uml-attr .vis{color:var(--color-text-tertiary);margin-right:3px}
+.uml-attr .type{color:var(--color-text-tertiary);font-size:9px}
+.uml-attr .constraint{color:var(--color-text-tertiary);font-size:9px;font-style:italic}
+.uml-method{font-size:10px;color:var(--color-text-primary);padding:1px 0}
+.uml-inv{font-size:9px;color:#854F0B;padding:1px 0;font-style:italic;border-top:1px dashed #EF9F27;margin-top:3px;padding-top:3px}
+.section-div{font-family:var(--font-sans);font-size:10px;color:var(--color-text-tertiary);font-style:italic;padding:2px 0}
+.rels{margin-top:14px;font-family:var(--font-sans);font-size:11px}
+.rels-title{font-size:12px;font-weight:600;color:var(--color-text-secondary);margin-bottom:6px}
+.rel-row{display:flex;align-items:center;gap:6px;padding:2px 0;color:var(--color-text-secondary)}
+.rel-from,.rel-to{font-family:var(--font-mono);font-size:11px;color:var(--color-text-primary);font-weight:500}
+.rel-sym{color:var(--color-text-tertiary);font-size:11px;min-width:60px;text-align:center}
+.rel-label{font-size:10px;color:var(--color-text-tertiary);font-style:italic}
+.rel-card{font-size:10px;color:var(--color-text-tertiary)}
+</style>
+<div class="diagram">
+<div class="legend" id="leg"></div>
+<div class="groups-wrap" id="gw"></div>
+</div>
+<script>
+const G=[
+{id:"g1",label:"1. User & Identity",bg:"#E6F1FB",border:"#185FA5",head:"#185FA5",
+ classes:[
+  {name:"User",stereo:"entity",attrs:[
+   ["+","userId","UUID","PK"],
+   ["+","cnicEncrypted","BYTEA","encrypted"],
+   ["+","ntnEncrypted","BYTEA","nullable,encrypted"],
+   ["+","kycTier","ENUM","{BASIC|FULL}"],
+   ["+","trustScore","SMALLINT","0–100"],
+   ["+","role","ENUM","{BUYER|SELLER|ADMIN}"],
+   ["+","isSellerSuspended","BOOLEAN",""],
+   ["+","suspensionUntil","TIMESTAMPTZ","nullable"],
+   ["+","isBuyerBanned","BOOLEAN",""],
+   ["+","accessibilityPrefs","JSONB",""],
+   ["+","preferredLocale","ENUM","{EN|UR}"],
+   ["+","createdAt","TIMESTAMPTZ","immutable"],
+   ["+","deletedAt","TIMESTAMPTZ","nullable,soft-delete"],
+   ["+","anonymisedUuid","UUID","replaces PII"],
+  ],methods:["calculateTrustScore() : SMALLINT","anonymisePII() : void"],
+  inv:["isSellerSuspended=true → suspensionUntil non-null"]},
+  {name:"UserSession",stereo:"entity",attrs:[
+   ["+","sessionId","UUID","PK"],
+   ["+","userId","UUID","FK→User"],
+   ["+","deviceFingerprint","VARCHAR","shill detection"],
+   ["+","ipAddress","INET","shill detection"],
+   ["+","networkBssid","VARCHAR","nullable"],
+   ["+","jwtToken","TEXT","short-lived"],
+   ["+","expiresAt","TIMESTAMPTZ",""],
+  ],methods:["invalidate() : void","isExpired() : BOOLEAN"],inv:["One active session per user max"]},
+  {name:"KycRecord",stereo:"entity",attrs:[
+   ["+","kycId","UUID","PK"],
+   ["+","userId","UUID","FK→User"],
+   ["+","ntnStatus","ENUM","{FILER|NON_FILER|UNVERIFIED}"],
+   ["+","biometricHashSha256","CHAR(64)","one-way hash"],
+   ["+","verificationSource","ENUM","{MOCK|NADRA_LIVE}"],
+   ["+","updatedAt","TIMESTAMPTZ",""],
+  ],methods:["verifyNtn() : BOOLEAN","tierUpgrade() : void"],inv:[]},
+  {name:"PenaltyConsentRecord",stereo:"entity",attrs:[
+   ["+","consentId","UUID","PK"],
+   ["+","userId","UUID","FK→User"],
+   ["+","policyVersion","VARCHAR","e.g. v2.0"],
+   ["+","acknowledgedAt","TIMESTAMPTZ","immutable"],
+   ["+","ipAtConsent","INET",""],
+  ],methods:[],inv:["Must exist before Penalty.apply() executes"]},
+ ],
+ rels:[
+  ["User","1","*--","0..*","UserSession","maintains"],
+  ["User","1","*--","1","KycRecord","verified by"],
+  ["User","1","*--","0..1","PenaltyConsentRecord","acknowledges"],
+ ]
+},
+{id:"g2",label:"2. Listing & AI Vetting",bg:"#E1F5EE",border:"#0F6E56",head:"#0F6E56",
+ classes:[
+  {name:"Listing",stereo:"entity",attrs:[
+   ["+","listingId","UUID","PK"],
+   ["+","sellerId","UUID","FK→User"],
+   ["+","category","ENUM","{SMARTPHONE}"],
+   ["+","imei","VARCHAR(15)","required"],
+   ["+","make","VARCHAR",""],
+   ["+","model","VARCHAR",""],
+   ["+","conditionRating","SMALLINT","1–10"],
+   ["+","reservePricePaisa","BIGINT","integer only"],
+   ["+","ptaStatus","ENUM","{REGISTERED_CLEAN|UNREGISTERED|BLACKLISTED}"],
+   ["+","status","ENUM","{PENDING_REVIEW|ACTIVE|SOLD|UNSOLD_EXPIRED|REJECTED}"],
+   ["+","ntnRequired","BOOLEAN","true if ≥Rs.100,000"],
+   ["+","createdAt","TIMESTAMPTZ",""],
+   ["+","publishedAt","TIMESTAMPTZ","nullable"],
+  ],methods:["requiresNtn() : BOOLEAN","canRelist() : BOOLEAN"],
+  inv:["If ACTIVE → TrustBadge.classification = VERIFIED or REVIEWED"]},
+  {name:"ListingImage",stereo:"entity",attrs:[
+   ["+","imageId","UUID","PK"],
+   ["+","listingId","UUID","FK→Listing"],
+   ["+","storageUrl","TEXT","EXIF-stripped,public"],
+   ["+","rawMetadataJson","JSONB","GPS+timestamp,restricted"],
+   ["+","sortOrder","SMALLINT",""],
+  ],methods:["stripExif() : void","extractGpsCoordinates() : POINT"],
+  inv:["storageUrl must never contain geolocation metadata"]},
+  {name:"TrustBadge",stereo:"entity",attrs:[
+   ["+","badgeId","UUID","PK"],
+   ["+","listingId","UUID","FK,UNIQUE"],
+   ["+","gate1LuhnPass","BOOLEAN",""],
+   ["+","gate2DirbsResult","ENUM","{REGISTERED_CLEAN|UNREGISTERED|BLACKLISTED}"],
+   ["+","gate3TacMatch","BOOLEAN",""],
+   ["+","check4ImageScore","SMALLINT","0–40"],
+   ["+","check5ConditionScore","SMALLINT","0–30"],
+   ["+","check6PriceScore","SMALLINT","0–30"],
+   ["+","compositeScore","SMALLINT","0–100,computed"],
+   ["+","classification","ENUM","{VERIFIED|REVIEWED|PENDING_REVIEW|REJECTED}"],
+   ["+","priceBelowMarketFlag","BOOLEAN",">35% below median"],
+   ["+","modelVersion","VARCHAR",""],
+  ],methods:["classify() : ENUM","computeCompositeScore() : SMALLINT"],
+  inv:["compositeScore = check4+check5+check6","priceBelowMarketFlag=true → classification ≤ REVIEWED"]},
+  {name:"VettingRequest",stereo:"entity",attrs:[
+   ["+","requestId","UUID","PK"],
+   ["+","listingId","UUID","FK→Listing"],
+   ["+","status","ENUM","{QUEUED|PROCESSING|COMPLETED|TIMED_OUT|FAILED}"],
+   ["+","submittedAt","TIMESTAMPTZ",""],
+   ["+","timeoutAt","TIMESTAMPTZ","+5000ms"],
+   ["+","degradedToManual","BOOLEAN",""],
+  ],methods:["isTimedOut() : BOOLEAN","escalateToManual() : void"],
+  inv:["degradedToManual=true → Listing.status=PENDING_REVIEW"]},
+ ],
+ rels:[
+  ["Listing","1","*--","0..*","ListingImage","contains"],
+  ["Listing","1","*--","1","TrustBadge","assigned"],
+  ["Listing","1","*--","0..1","VettingRequest","processed by"],
+ ]
+},
+{id:"g3",label:"3. Auction & Bidding",bg:"#FAEEDA",border:"#854F0B",head:"#854F0B",
+ classes:[
+  {name:"Auction",stereo:"entity",attrs:[
+   ["+","auctionId","UUID","PK"],
+   ["+","listingId","UUID","FK→Listing,UNIQUE"],
+   ["+","startTime","TIMESTAMPTZ",""],
+   ["+","endTime","TIMESTAMPTZ",""],
+   ["+","reservePricePaisa","BIGINT",""],
+   ["+","status","ENUM","{SCHEDULED|ACTIVE|CLOSED|CANCELLED}"],
+   ["+","winnerBidId","UUID","FK→Bid,nullable"],
+   ["+","totalBidCount","INTEGER","denormalised"],
+   ["+","closedAt","TIMESTAMPTZ","nullable"],
+  ],methods:["close() : void","determineWinner() : UUID","hasBids() : BOOLEAN"],
+  inv:["If CLOSED and totalBidCount>0 → winnerBidId non-null","If CLOSED and totalBidCount=0 → Listing.status→UNSOLD_EXPIRED"]},
+  {name:"Bid",stereo:"entity",attrs:[
+   ["+","bidId","UUID","PK"],
+   ["+","auctionId","UUID","FK→Auction"],
+   ["+","bidderId","UUID","FK→User"],
+   ["+","amountPaisa","BIGINT","raw bid"],
+   ["+","totalWithFeePaisa","BIGINT","amountPaisa×1.02"],
+   ["+","status","ENUM","{PENDING|ACCEPTED|OUTBID|WINNING|VOIDED}"],
+   ["+","idempotencyKey","UUID","24h cache"],
+   ["+","shillDetectionFlag","BOOLEAN",""],
+   ["+","createdAt","TIMESTAMPTZ","ms precision"],
+  ],methods:["reserve() : void","void() : void","isShillBid() : BOOLEAN"],
+  inv:["totalWithFeePaisa = amountPaisa×1.02 (integer arithmetic)","shillDetectionFlag=true → status must be VOIDED"]},
+  {name:"BidCacheEntry",stereo:"Redis Cache",attrs:[
+   ["+","cacheKey","VARCHAR","auction:{id}:highestBid"],
+   ["+","highestBidPaisa","BIGINT",""],
+   ["+","highestBidderId","UUID",""],
+   ["+","bidCount","INTEGER",""],
+   ["+","ttlSeconds","INTEGER","auction duration+60s"],
+   ["+","lastUpdatedAt","TIMESTAMPTZ",""],
+  ],methods:["invalidate() : void","refresh() : void"],
+  inv:["Never source of truth for financial ops","Reconciled with PostgreSQL at auction close"]},
+  {name:"BidStreamEvent",stereo:"EDA / Redis Streams",attrs:[
+   ["+","streamId","VARCHAR","Redis auto-generated"],
+   ["+","bidId","UUID","FK→Bid"],
+   ["+","auctionId","UUID",""],
+   ["+","amountPaisa","BIGINT",""],
+   ["+","idempotencyKey","UUID",""],
+   ["+","publishedAt","TIMESTAMPTZ",""],
+   ["+","processedAt","TIMESTAMPTZ","nullable"],
+   ["+","dlqAt","TIMESTAMPTZ","nullable,Dead Letter Queue"],
+  ],methods:["acknowledge() : void","moveToDlq() : void"],
+  inv:["If processedAt null after 5000ms → moveToDlq()"]},
+ ],
+ rels:[
+  ["Auction","1","o--","0..*","Bid","receives"],
+  ["Bid","1","..>","0..1","BidStreamEvent","published as"],
+  ["BidStreamEvent","1","..>","1","BidCacheEntry","updates"],
+ ]
+},
+{id:"g4",label:"4. Financial & Ledger",bg:"#FDEDEC",border:"#A32D2D",head:"#A32D2D",
+ classes:[
+  {name:"Wallet",stereo:"entity",attrs:[
+   ["+","walletId","UUID","PK"],
+   ["+","userId","UUID","FK→User,UNIQUE"],
+   ["+","availablePaisa","BIGINT","free for bidding"],
+   ["+","reservedPaisa","BIGINT","committed to bids"],
+   ["+","lockedPaisa","BIGINT","in escrow"],
+   ["+","totalDepositedPaisa","BIGINT",""],
+   ["+","dailyEscrowExposurePaisa","BIGINT","AML 24h counter"],
+   ["+","updatedAt","TIMESTAMPTZ",""],
+  ],methods:["reserve(amount) : void","release(amount) : void","lock(amount) : void","unlock(amount) : void","deductPenalty(amount) : void"],
+  inv:["available+reserved+locked = totalDeposited AT ALL TIMES","All values must be BIGINT (no decimals)"]},
+  {name:"TaxAccount",stereo:"entity",attrs:[
+   ["+","accountId","UUID","PK"],
+   ["+","accountType","ENUM","{WHT_HOLDING|ICT_SALES_TAX|PLATFORM_REVENUE|PENALTY_POOL|RECONCILIATION_DUST}"],
+   ["+","balancePaisa","BIGINT",""],
+   ["+","lastRemittedAt","TIMESTAMPTZ","nullable"],
+   ["+","remittanceSchedule","ENUM","{MONTHLY|QUARTERLY}"],
+  ],methods:["remit() : void","getBalance() : BIGINT"],
+  inv:["PLATFORM_REVENUE must never contain WHT or ICT amounts"]},
+  {name:"Transaction",stereo:"entity",attrs:[
+   ["+","transactionId","UUID","PK"],
+   ["+","auctionId","UUID","FK→Auction"],
+   ["+","buyerId","UUID","FK→User"],
+   ["+","sellerId","UUID","FK→User"],
+   ["+","winningBidPaisa","BIGINT",""],
+   ["+","buyerFeePaisa","BIGINT","bid×0.02"],
+   ["+","sellerFeePaisa","BIGINT","bid×0.02"],
+   ["+","whtPaisa","BIGINT","bid×0.01"],
+   ["+","ictTaxPaisa","BIGINT","totalFees×0.15"],
+   ["+","sellerNetPaisa","BIGINT","bid−sellerFee−wht"],
+   ["+","platformRevenuePaisa","BIGINT","fees−ictTax"],
+   ["+","moneyState","ENUM","S1..S13"],
+   ["+","settlementHashSha256","CHAR(64)","nullable"],
+   ["+","createdAt","TIMESTAMPTZ",""],
+  ],methods:["validateZeroSum() : BOOLEAN","computeSettlementHash() : CHAR(64)","transitionState(s) : void"],
+  inv:["winningBid×1.02 = sum of all outbound amounts","moneyState transitions must follow 13-state machine"]},
+  {name:"LedgerEntry",stereo:"Append-Only",attrs:[
+   ["+","entryId","UUID","PK"],
+   ["+","transactionId","UUID","FK,nullable"],
+   ["+","fromWalletId","UUID","nullable"],
+   ["+","toWalletId","UUID","FK"],
+   ["+","amountPaisa","BIGINT",">0"],
+   ["+","entryType","ENUM","{DEBIT|CREDIT}"],
+   ["+","purpose","ENUM","{ESCROW_LOCK|SETTLEMENT|WHT|ICT_TAX|PLATFORM_FEE|REFUND|PENALTY|DEPOSIT|WITHDRAWAL}"],
+   ["+","previousHashSha256","CHAR(64)",""],
+   ["+","currentHashSha256","CHAR(64)",""],
+   ["+","createdAt","TIMESTAMPTZ","immutable"],
+  ],methods:["computeHash() : CHAR(64)","verifyChain() : BOOLEAN"],
+  inv:["INSERT ONLY — no UPDATE or DELETE for any role","currentHash = SHA256(entryData+previousHash)"]},
+  {name:"IdempotencyKey",stereo:"entity",attrs:[
+   ["+","keyId","UUID","PK,client UUIDv4"],
+   ["+","userId","UUID","FK→User"],
+   ["+","operationType","VARCHAR",""],
+   ["+","responsePayload","JSONB","cached response"],
+   ["+","createdAt","TIMESTAMPTZ",""],
+   ["+","expiresAt","TIMESTAMPTZ","+24h"],
+  ],methods:["isDuplicate() : BOOLEAN","getCachedResponse() : JSONB"],
+  inv:["Duplicate keyId → return cached response, no re-execution"]},
+ ],
+ rels:[
+  ["Transaction","1","o--","0..*","LedgerEntry","recorded in"],
+  ["Wallet","1","o--","0..*","LedgerEntry","referenced in"],
+ ]
+},
+{id:"g5",label:"5. Escrow, Meetup & Settlement",bg:"#F0EEF8",border:"#534AB7",head:"#534AB7",
+ classes:[
+  {name:"Escrow",stereo:"entity",attrs:[
+   ["+","escrowId","UUID","PK"],
+   ["+","transactionId","UUID","FK→Transaction,UNIQUE"],
+   ["+","amountPaisa","BIGINT","total locked incl. buyer fee"],
+   ["+","qrSeedEncrypted","BYTEA","AES-256-GCM"],
+   ["+","qrSeedTtlExpiry","TIMESTAMPTZ","+120s from generation"],
+   ["+","status","ENUM","{LOCKED|DISPUTED|RELEASED|REFUNDED|DURESS_FROZEN}"],
+   ["+","twopcPrepareAt","TIMESTAMPTZ","nullable"],
+   ["+","twopcCommitAt","TIMESTAMPTZ","nullable"],
+  ],methods:["generateQrSeed() : BYTEA","validateQrSeed(seed) : BOOLEAN","prepareTwopc() : BOOLEAN","commitTwopc() : void","rollbackTwopc() : void"],
+  inv:["qrSeedEncrypted must be null after RELEASED or REFUNDED"]},
+  {name:"MeetupSession",stereo:"entity",attrs:[
+   ["+","meetupId","UUID","PK"],
+   ["+","transactionId","UUID","FK→Transaction,UNIQUE"],
+   ["+","proposedLocation","VARCHAR",""],
+   ["+","proposedTime","TIMESTAMPTZ","nullable"],
+   ["+","buyerConfirmedAt","TIMESTAMPTZ","nullable"],
+   ["+","sellerConfirmedAt","TIMESTAMPTZ","nullable"],
+   ["+","confirmedAt","TIMESTAMPTZ","both confirmed"],
+   ["+","imeiScanResult","ENUM","{PENDING|MATCH|MISMATCH}"],
+   ["+","scannedImei","VARCHAR(15)","captured by app"],
+   ["+","qrScannedAt","TIMESTAMPTZ","nullable"],
+   ["+","geolocationAtScan","POINT","nullable"],
+   ["+","duressActivated","BOOLEAN","default false"],
+  ],methods:["confirmMeetup() : void","recordImeiScan(imei) : ENUM","unlockQr() : void","activateDuress() : void"],
+  inv:["imeiScanResult=MISMATCH → qrScannedAt MUST remain NULL","confirmedAt set only when both buyer+seller confirmed"]},
+  {name:"SettlementReceipt",stereo:"Immutable",attrs:[
+   ["+","receiptId","UUID","PK"],
+   ["+","transactionId","UUID","FK→Transaction,UNIQUE"],
+   ["+","buyerIdHash","CHAR(64)","SHA-256"],
+   ["+","sellerIdHash","CHAR(64)","SHA-256"],
+   ["+","listingId","UUID",""],
+   ["+","verifiedImei","VARCHAR(15)",""],
+   ["+","settlementTimestamp","TIMESTAMPTZ","ms precision"],
+   ["+","geolocation","POINT",""],
+   ["+","receiptHashSha256","CHAR(64)",""],
+   ["+","platformPublicKeyRef","VARCHAR",""],
+  ],methods:["verify(publicKey) : BOOLEAN","toString() : TEXT"],
+  inv:["INSERT ONLY","Any field modification invalidates receiptHashSha256"]},
+ ],
+ rels:[
+  ["Escrow","1","--","1","MeetupSession","coordinated by"],
+  ["MeetupSession","1","..>","0..1","SettlementReceipt","generates on QR scan"],
+ ]
+},
+{id:"g6",label:"6. Governance & Disputes",bg:"#FEF0E8",border:"#993C1D",head:"#993C1D",
+ classes:[
+  {name:"Dispute",stereo:"entity",attrs:[
+   ["+","disputeId","UUID","PK"],
+   ["+","transactionId","UUID","FK→Transaction"],
+   ["+","raisedBy","ENUM","{BUYER|SELLER|SYSTEM}"],
+   ["+","disputeType","ENUM","{IMEI_MISMATCH|QR_REFUSAL|ITEM_NOT_AS_DESCRIBED|FRAUDULENT_REVERSAL|DURESS|MEETUP_FAILED}"],
+   ["+","reason","TEXT",""],
+   ["+","evidenceFrozenAt","TIMESTAMPTZ","set on creation"],
+   ["+","status","ENUM","{OPEN|UNDER_REVIEW|RESOLVED_BUYER|RESOLVED_SELLER|RESOLVED_SPLIT}"],
+   ["+","resolverId","UUID","FK→User admin,nullable"],
+   ["+","buyerSharePct","SMALLINT","nullable"],
+   ["+","sellerSharePct","SMALLINT","nullable"],
+  ],methods:["freezeEvidence() : void","resolve(verdict) : void","splitSettle(buyerPct,sellerPct) : void"],
+  inv:["evidenceFrozenAt set within 1s of creation","buyerSharePct+sellerSharePct=100 for RESOLVED_SPLIT","No user-level writes after evidenceFrozenAt"]},
+  {name:"AdminApproval",stereo:"Maker-Checker",attrs:[
+   ["+","approvalId","UUID","PK"],
+   ["+","actionType","ENUM","{MANUAL_REFUND|DISPUTE_RESOLUTION|PENALTY_OVERRIDE|ACCOUNT_BAN|WALLET_ADJUSTMENT}"],
+   ["+","initiatorId","UUID","FK→Admin A (Maker)"],
+   ["+","approverId","UUID","FK→Admin B (Checker),nullable"],
+   ["+","targetEntityId","UUID",""],
+   ["+","requestedAt","TIMESTAMPTZ",""],
+   ["+","approvedAt","TIMESTAMPTZ","nullable"],
+   ["+","status","ENUM","{AWAITING_APPROVAL|APPROVED|REJECTED|EXPIRED}"],
+   ["+","cryptoSignatureMaker","TEXT",""],
+   ["+","cryptoSignatureChecker","TEXT","nullable"],
+  ],methods:["approve(checkerId,signature) : void","reject(checkerId,reason) : void","isExpired() : BOOLEAN"],
+  inv:["initiatorId ≠ approverId","Action executes ONLY when status=APPROVED","Expires after 24h if not actioned"]},
+  {name:"Penalty",stereo:"entity",attrs:[
+   ["+","penaltyId","UUID","PK"],
+   ["+","userId","UUID","FK→User"],
+   ["+","transactionId","UUID","FK,nullable"],
+   ["+","penaltyType","ENUM","{B1_GHOST|B2_NOSHOWCONFIRMED|B3_BAD_FAITH_QR|B4A_POST_QR_FRAUD|B5_SHILL}"],
+   ["+","offenceNumber","SMALLINT","1,2,or 3"],
+   ["+","grossAmountPaisa","BIGINT",""],
+   ["+","sellerSharePaisa","BIGINT",""],
+   ["+","platformSharePaisa","BIGINT",""],
+   ["+","appliedAt","TIMESTAMPTZ",""],
+   ["+","consentRecordId","UUID","FK→PenaltyConsentRecord"],
+  ],methods:["calculate(bidPaisa,offenceNumber) : BIGINT","apply() : void"],
+  inv:["sellerSharePaisa+platformSharePaisa=grossAmountPaisa","PenaltyConsentRecord must exist before apply()"]},
+  {name:"SellerSuspension",stereo:"entity",attrs:[
+   ["+","suspensionId","UUID","PK"],
+   ["+","sellerId","UUID","FK→User"],
+   ["+","failureType","ENUM","{S1_GHOST|S2_NOSHOWCONFIRMED|S3_WRONG_DEVICE|S4_MISREPRESENTED|S5_LISTING_FRAUD|S6_FAKE_NTN}"],
+   ["+","offenceNumber","SMALLINT","1,2,or 3"],
+   ["+","suspensionDays","SMALLINT","7,14,or 30"],
+   ["+","isPermanent","BOOLEAN",""],
+   ["+","fbrReferralRequired","BOOLEAN","true for S6"],
+   ["+","appliedAt","TIMESTAMPTZ",""],
+   ["+","expiresAt","TIMESTAMPTZ","nullable if permanent"],
+   ["+","appliedByAdminId","UUID","FK→User admin"],
+  ],methods:["isActive() : BOOLEAN","expire() : void"],
+  inv:["offenceNumber=3 → isPermanent=true","S6_FAKE_NTN → fbrReferralRequired=true AND isPermanent=true"]},
+  {name:"Notification",stereo:"entity",attrs:[
+   ["+","notificationId","UUID","PK"],
+   ["+","userId","UUID","FK→User"],
+   ["+","type","ENUM","{OUTBID|AUCTION_WON|MEETUP_CONFIRM|IMEI_MATCH|IMEI_MISMATCH|QR_SCANNED|FUNDS_RELEASED|DISPUTE_OPENED|PENALTY_APPLIED|SUSPENSION_APPLIED|ADMIN_ALERT}"],
+   ["+","payload","JSONB",""],
+   ["+","channel","ENUM","{PUSH|IN_APP|SMS}"],
+   ["+","status","ENUM","{QUEUED|DISPATCHED|DELIVERED|FAILED}"],
+   ["+","dispatchedAt","TIMESTAMPTZ","nullable"],
+   ["+","createdAt","TIMESTAMPTZ",""],
+  ],methods:["dispatch() : void","retry() : void"],
+  inv:["ADMIN_ALERT channel must include SMS","dispatchedAt within 2000ms of trigger"]},
+ ],
+ rels:[
+  ["Dispute","1","*--","1","AdminApproval","requires"],
+ ]
+},
+];
+
+const CROSS=[
+ ["User","1","o--","0..*","Listing","creates"],
+ ["User","1","*--","1","Wallet","owns"],
+ ["User","1","o--","0..*","Bid","places"],
+ ["User","1","o--","0..*","Notification","receives"],
+ ["User","1","o--","0..*","Penalty","subject of"],
+ ["User","1","o--","0..*","SellerSuspension","subject of"],
+ ["User","1","o--","0..*","IdempotencyKey","scoped to"],
+ ["Listing","1","o--","0..1","Auction","listed in"],
+ ["Auction","1","..>","0..1","Transaction","produces on close"],
+ ["Transaction","1","*--","1","Escrow","holds funds in"],
+ ["Transaction","1","*--","0..1","Dispute","escalated to"],
+ ["Transaction","1","*--","0..1","SettlementReceipt","proven by"],
+ ["Penalty","0..*","-->","1","PenaltyConsentRecord","requires consent"],
+];
+
+const SYM={"*--":"◆—","o--":"◇—","..>":"- - ▷","-->":"——▷","--":"———"};
+
+let activeG=null;
+
+function buildLegend(){
+ const l=document.getElementById('leg');
+ l.innerHTML=['All',...G.map(g=>g.label)].map((lbl,i)=>{
+  const g=G[i-1];
+  const isOn=i===0?activeG===null:activeG===g?.id;
+  const bg=i===0?'var(--color-background-secondary)':g.bg;
+  const col=i===0?'var(--color-text-primary)':g.head;
+  return `<span class="leg${isOn?' on':''}" style="background:${bg};color:${col};${isOn?`border-color:${col}`:'border-color:transparent'}" onclick="setG(${i===0?'null':`'${g.id}'`})">${lbl}</span>`;
+ }).join('');
+}
+
+function renderClass(cls,head){
+ return `<div class="uml-class">
+  <div class="uml-head" style="background:${head}">
+   <div class="stereo">&lt;&lt;${cls.stereo}&gt;&gt;</div>
+   <div class="name">${cls.name}</div>
+  </div>
+  <div class="uml-section">
+   ${cls.attrs.map(([v,n,t,c])=>`<div class="uml-attr"><span class="vis">${v}</span>${n} : <span class="type">${t}</span>${c?` <span class="constraint">{${c}}</span>`:''}</div>`).join('')}
+  </div>
+  <div class="uml-section">
+   ${cls.methods.map(m=>`<div class="uml-method">+ ${m}</div>`).join('')}
+   ${cls.inv.length?`<div class="uml-inv">${cls.inv.map(i=>`⚑ ${i}`).join('<br>')}</div>`:''}
+  </div>
+ </div>`;
+}
+
+function renderRels(rels){
+ if(!rels.length)return'';
+ return`<div class="rels">
+  <div class="rels-title">Relationships</div>
+  ${rels.map(([f,cf,s,ct,t,l])=>`<div class="rel-row">
+   <span class="rel-from">${f}</span>
+   <span class="rel-card">${cf}</span>
+   <span class="rel-sym">${SYM[s]||s}</span>
+   <span class="rel-card">${ct}</span>
+   <span class="rel-to">${t}</span>
+   <span class="rel-label">${l}</span>
+  </div>`).join('')}
+ </div>`;
+}
+
+function render(){
+ const gw=document.getElementById('gw');
+ const vis=activeG?G.filter(g=>g.id===activeG):G;
+ gw.innerHTML=vis.map(g=>`
+  <div class="group" style="background:${g.bg};border-color:${g.border}">
+   <div class="group-title" style="color:${g.head}">${g.label}</div>
+   <div class="classes-row">${g.classes.map(c=>renderClass(c,g.head)).join('')}</div>
+   ${renderRels(g.rels)}
+  </div>
+ `).join('')+(!activeG?`
+  <div class="group" style="background:var(--color-background-secondary);border-color:var(--color-border-secondary)">
+   <div class="group-title" style="color:var(--color-text-secondary)">Cross-Package Relationships</div>
+   ${renderRels(CROSS)}
+  </div>`:'');
+}
+
+function setG(id){activeG=id;buildLegend();render();}
+buildLegend();render();
+</script>

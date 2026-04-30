@@ -1,0 +1,19 @@
+-- Boli.pk CEP Demo Seed Data
+-- Provides test data for the 6 CEP demo scenarios (CLAUDE.md Section 15).
+--
+-- Scenario 1: Happy Path (clean IMEI, VERIFIED listing, funded buyer wallet)
+-- Scenario 2: IMEI Mismatch (listing IMEI ≠ scanned IMEI at meetup)
+-- Scenario 3: Ghost Bidding (buyer wins, does not confirm meetup within 72h)
+-- Scenario 4: Duress (seller enters duress PIN instead of biometric)
+-- Scenario 5: Admin Dispute Resolution (no QR within 4h after confirmed meetup)
+-- Scenario 6: AI Pipeline (listing with VERIFIED / REVIEWED / REJECTED examples)
+--
+-- Mock DIRBS test IMEIs:
+--   353456789012345 → REGISTERED_CLEAN
+--   490154203237518 → BLACKLISTED
+--   012345678901230 → UNREGISTERED
+
+-- TODO: insert admin users (seeded via bootstrap CLI, not here)
+-- TODO: insert test buyer + seller accounts with pre-funded wallets
+-- TODO: insert sample listings in each AI vetting state
+-- TODO: insert in-progress auction for live demo

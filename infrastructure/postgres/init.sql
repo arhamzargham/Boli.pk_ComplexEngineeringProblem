@@ -1,0 +1,17 @@
+-- Boli.pk PostgreSQL Schema
+-- Covers all 32 data model classes from CLAUDE.md Section 6.
+-- Includes: triggers (wallet invariant, zero-sum, append-only), CHECK constraints, RLS policies.
+-- Append-only enforcement: LedgerEntry, SettlementReceipt, MeetupMessage(when isEvidence=true)
+-- 5-year retention policy enforced via RLS on all financial tables.
+
+-- TODO: Package 1 — User, UserSession, KycRecord, PenaltyConsentRecord, Wallet
+-- TODO: Package 2 — Listing, ListingImage, ListingVetting
+-- TODO: Package 3 — Auction, Bid
+-- TODO: Package 4 — TaxAccount, Transaction, LedgerEntry
+-- TODO: Package 5 — Escrow, MeetupSession, MeetupMessage, SettlementReceipt
+-- TODO: Package 6 — Dispute, AdminApproval (+ 5 subclass tables)
+-- TODO: Package 7 — Notification (+ 7 subclass tables)
+-- TODO: Triggers: wallet_balance_invariant, zero_sum_check, append_only_ledger
+-- TODO: CHECK constraints: IMEI-QR gate (INVARIANT-08), maker_checker_separation (INVARIANT-07)
+-- TODO: GIN index on listings.search_vector (Section 10)
+-- TODO: RLS policies: 5-year retention, rawMetadataJson access restriction
