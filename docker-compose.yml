@@ -1,34 +1,61 @@
-# Boli.pk — Single-command CEP deployment
-# Usage: docker-compose up
-# All external dependencies (PTA DIRBS, FBR NTN, payment gateway) are mocked locally.
-# No external internet required.
+# Boli.pk — single-command CEP deployment
+# Usage: docker-compose up --build
+#
+# Services
+#   postgres    PostgreSQL 16 — financial ledger, schema + seed on first start
+#   redis       Redis 7       — bid cache, EDA bus, OTP store, session set
+#   gateway     Go 1.22       — API gateway + WebSocket bidding engine
+#   ai-vetting  Python 3.11   — AI vetting pipeline (placeholder: sleep infinity)
+#
+# All external dependencies (PTA DIRBS, FBR NTN, payment gateway) are mocked.
+# No external internet required after images are pulled.
 
 version: "3.9"
 
+networks:
+  boli-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+
 services:
+
+  # ── PostgreSQL 16 ─────────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped
+    networks:
+      - boli-network
     environment:
-      POSTGRES_DB: boli
-      POSTGRES_USER: boli
+      POSTGRES_DB:       boli
+      POSTGRES_USER:     boli
       POSTGRES_PASSWORD: boli_dev_secret
     volumes:
-      - ./infrastructure/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql
-      - ./infrastructure/postgres/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
-      - postgres_data:/var/lib/postgresql/data
+      # initdb scripts run in alphabetical order on first start only.
+      # 01 = schema (DDL, triggers, constraints)
+      # 02 = seed  (demo data for all 6 CEP scenarios)
+      - ./infrastructure/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./infrastructure/postgres/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+      - postgres-data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U boli"]
+      test: ["CMD-SHELL", "pg_isready -U boli -d boli"]
       interval: 5s
       timeout: 5s
       retries: 10
+      start_period: 10s
 
+  # ── Redis 7 ───────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
+    networks:
+      - boli-network
     command: redis-server /usr/local/etc/redis/redis.conf
     volumes:
-      - ./infrastructure/redis/redis.conf:/usr/local/etc/redis/redis.conf
+      - ./infrastructure/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
     ports:
       - "6379:6379"
     healthcheck:
@@ -36,71 +63,56 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+      start_period: 5s
 
-  centrifugo:
-    image: centrifugo/centrifugo:v5
-    environment:
-      CENTRIFUGO_TOKEN_HMAC_SECRET_KEY: "centrifugo_dev_secret"
-      CENTRIFUGO_API_KEY: "centrifugo_api_key"
-      CENTRIFUGO_REDIS_ADDRESS: "redis:6379"
-    ports:
-      - "8001:8000"
-    depends_on:
-      redis:
-        condition: service_healthy
-
+  # ── Go Gateway ────────────────────────────────────────────────
   gateway:
     build:
       context: ./services/gateway
       dockerfile: Dockerfile
+    restart: unless-stopped
+    networks:
+      - boli-network
     environment:
+      # PostgreSQL DSN — lib/pq format
       DATABASE_URL: "postgres://boli:boli_dev_secret@postgres:5432/boli?sslmode=disable"
+      # Redis address — host:port (go-redis Addr field)
       REDIS_URL: "redis:6379"
-      CENTRIFUGO_URL: "http://centrifugo:8000"
-      CENTRIFUGO_API_KEY: "centrifugo_api_key"
-      JWT_SECRET: "jwt_dev_secret_min_32_chars_long_x"
+      # JWT signing secret — minimum 32 chars
+      JWT_SECRET: "boli_dev_jwt_secret_min_32_chars_x"
+      # AI vetting service base URL
       AI_VETTING_URL: "http://ai-vetting:8002"
-      BOOTSTRAP_SECRET: "bootstrap_dev_secret"
+      # Bootstrap CLI secret (one-time; rotated after admin setup)
+      BOOTSTRAP_SECRET: "boli_dev_bootstrap_secret"
+      # Max simultaneous active listings per seller (CLAUDE.md Gap 20)
       MAX_ACTIVE_LISTINGS_PER_SELLER: "5"
+      # Gin mode: debug for CEP, release for production
+      GIN_MODE: "debug"
     ports:
-      - "8000:8000"
+      - "8080:8080"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health | grep -q '\"status\":\"ok\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
+  # ── AI Vetting (placeholder) ──────────────────────────────────
+  # Full FastAPI implementation comes after the Go gateway is complete.
+  # Placeholder keeps the service discoverable on boli-network so
+  # gateway environment variable AI_VETTING_URL resolves correctly.
   ai-vetting:
-    build:
-      context: ./services/ai-vetting
-      dockerfile: Dockerfile
+    image: python:3.11-slim
+    restart: unless-stopped
+    networks:
+      - boli-network
     environment:
-      MOCK_DIRBS: "true"
+      MOCK_DIRBS:    "true"
       MOCK_GSMA_TAC: "true"
-    ports:
-      - "8002:8002"
-
-  frontend:
-    build:
-      context: ./services/frontend
-      dockerfile: Dockerfile
-    environment:
-      NEXT_PUBLIC_API_URL: "http://localhost:8000"
-      NEXT_PUBLIC_CENTRIFUGO_URL: "ws://localhost:8001/connection/websocket"
-    ports:
-      - "3000:3000"
-    depends_on:
-      - gateway
-
-  nginx:
-    image: nginx:alpine
-    volumes:
-      - ./infrastructure/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-    ports:
-      - "80:80"
-    depends_on:
-      - gateway
-      - frontend
-
-volumes:
-  postgres_data:
+    command: ["sleep", "infinity"]
+    # No ports exposed — only reachable by gateway on boli-network
