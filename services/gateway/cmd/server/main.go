@@ -9,17 +9,20 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/redis/go-redis/v9"
 	_ "github.com/lib/pq"
+	"github.com/redis/go-redis/v9"
 
+	"boli.pk/gateway/internal/admin"
+	"boli.pk/gateway/internal/auction"
 	"boli.pk/gateway/internal/auth"
 	"boli.pk/gateway/internal/listing"
 	"boli.pk/gateway/internal/middleware"
+	"boli.pk/gateway/internal/transaction"
 	"boli.pk/gateway/internal/wallet"
 )
 
 func main() {
-	dbURL    := mustEnv("DATABASE_URL")
+	dbURL     := mustEnv("DATABASE_URL")
 	redisAddr := mustEnv("REDIS_URL")
 	jwtSecret := mustEnv("JWT_SECRET")
 
@@ -29,32 +32,54 @@ func main() {
 	// ── Handlers ──────────────────────────────────────────────
 	authH    := auth.NewHandler(db, rdb, jwtSecret)
 	listingH := listing.NewHandler(db)
+	auctionH := auction.NewHandler(db)
 	walletH  := wallet.NewHandler(db)
+	txH      := transaction.NewHandler(db)
+	adminH   := admin.NewHandler(db)
 	authMW   := middleware.NewAuth(rdb, jwtSecret)
 
 	// ── Router ────────────────────────────────────────────────
 	r := gin.New()
 	r.Use(gin.Logger(), gin.Recovery())
 
-	// Health check (no auth)
 	r.GET("/health", healthHandler(db, rdb))
 
 	v1 := r.Group("/api/v1")
 
-	// Auth endpoints (public)
+	// ── Auth (public) ─────────────────────────────────────────
 	authG := v1.Group("/auth")
 	authG.POST("/request-otp", authH.RequestOTP)
 	authG.POST("/verify-otp",  authH.VerifyOTP)
 
-	// Listing endpoints (public — no auth required for browsing)
+	// ── Listings (public) ─────────────────────────────────────
 	listG := v1.Group("/listings")
-	listG.GET("",    listingH.List)
+	listG.GET("",     listingH.List)
 	listG.GET("/:id", listingH.Get)
 
-	// Wallet endpoint (JWT required)
+	// ── Auctions (public reads, protected writes) ─────────────
+	auctionG := v1.Group("/auctions")
+	auctionG.GET("/:id",       auctionH.Get)
+	auctionG.GET("/:id/bids",  auctionH.ListBids)
+
+	// Place bid requires authentication
+	auctionAuth := v1.Group("/auctions")
+	auctionAuth.Use(authMW.RequireAuth())
+	auctionAuth.POST("/:id/bids", auctionH.PlaceBid)
+
+	// ── Wallet (protected) ────────────────────────────────────
 	walletG := v1.Group("/wallet")
 	walletG.Use(authMW.RequireAuth())
 	walletG.GET("", walletH.Get)
+
+	// ── Transactions (protected — buyer or seller only) ────────
+	txG := v1.Group("/transactions")
+	txG.Use(authMW.RequireAuth())
+	txG.GET("/:id", txH.Get)
+
+	// ── Admin (protected — ADMIN role only) ───────────────────
+	adminG := v1.Group("/admin")
+	adminG.Use(authMW.RequireAuth(), middleware.RequireRole("ADMIN"))
+	adminG.POST("/wallets/fund", adminH.FundWallet)
 
 	log.Println("boli.pk gateway listening on :8080")
 	if err := r.Run(":8080"); err != nil {
@@ -98,30 +123,24 @@ func connectRedis(addr string) *redis.Client {
 	return rdb
 }
 
-// healthHandler performs live pings so the check reflects actual state.
 func healthHandler(db *sql.DB, rdb *redis.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx := c.Request.Context()
 
 		dbStatus := "ok"
 		if err := db.PingContext(ctx); err != nil {
-			log.Printf("health: postgres ping failed: %v", err)
 			dbStatus = "error"
 		}
-
 		redisStatus := "ok"
 		if err := rdb.Ping(ctx).Err(); err != nil {
-			log.Printf("health: redis ping failed: %v", err)
 			redisStatus = "error"
 		}
-
 		overall := "ok"
 		code := http.StatusOK
 		if dbStatus != "ok" || redisStatus != "ok" {
 			overall = "degraded"
 			code = http.StatusServiceUnavailable
 		}
-
 		c.JSON(code, gin.H{"status": overall, "db": dbStatus, "redis": redisStatus})
 	}
 }
