@@ -116,3 +116,21 @@ services:
       MOCK_GSMA_TAC: "true"
     command: ["sleep", "infinity"]
     # No ports exposed — only reachable by gateway on boli-network
+
+  # ── Next.js Frontend ─────────────────────────────────────────
+  frontend:
+    build:
+      context: ./services/frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks:
+      - boli-network
+    environment:
+      # Server-side fetch uses gateway directly (not via browser proxy)
+      API_URL: "http://gateway:8080"
+      NODE_ENV: "production"
+    ports:
+      - "3000:3000"
+    depends_on:
+      gateway:
+        condition: service_healthy

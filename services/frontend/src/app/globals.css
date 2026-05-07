@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --obs:            #1C1917;
+  --obs-90:         #2C2622;
+  --obs-80:         #3D3530;
+  --copper:         #B87333;
+  --copper-light:   rgba(184, 115, 51, 0.12);
+  --copper-border:  rgba(184, 115, 51, 0.25);
+  --cream:          #FAFAF7;
+  --surface:        #FFFFFF;
+  --text-primary:   #111110;
+  --text-muted:     #6B6B67;
+  --text-faint:     #A8A8A4;
+  --border:         #E8E8E4;
+  --verified-bg:    #DCFCE7;
+  --verified-text:  #166534;
+  --reviewed-bg:    #FEF3C7;
+  --reviewed-text:  #92400E;
+  --success:        #10B981;
+  --warning:        #F97316;
+  --danger:         #EF4444;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
