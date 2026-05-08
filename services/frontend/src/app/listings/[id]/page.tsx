@@ -10,6 +10,11 @@ import VettingReport from '@/components/listing/VettingReport'
 import { api } from '@/lib/api'
 import { paisaToRs, conditionLabel, truncateImei } from '@/lib/formatters'
 
+function listingToAuctionId(listingId: string): string {
+  // Phase 2 auction IDs use e1 prefix to avoid conflicts with Phase 1 seed auctions
+  return 'e1' + listingId.slice(2)
+}
+
 interface Props {
   params: { id: string }
 }
@@ -129,7 +134,7 @@ export default async function ListingDetailPage({ params }: Props) {
                 </p>
 
                 <Link
-                  href={`/listings/${listing.listing_id}/auction`}
+                  href={`/listings/${listing.listing_id}/auction?auctionId=${listingToAuctionId(listing.listing_id)}`}
                   className="block w-full bg-copper text-white text-center py-2.5 rounded-[9px] text-[13px] font-medium mt-2.5 hover:bg-copper/90 transition-colors"
                 >
                   Join Auction · Place a Bid

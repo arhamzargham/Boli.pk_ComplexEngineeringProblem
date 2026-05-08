@@ -1,4 +1,4 @@
-import type { AuthResponse, Listing, ListingDetail, ListingsResponse, Auction, Wallet } from '@/types'
+import type { AuthResponse, Listing, ListingDetail, ListingsResponse, Auction, Wallet, BidResponse, BidsListResponse } from '@/types'
 
 // Server components (SSR): direct URL. Client components: proxy via Next.js rewrite.
 const BASE =
@@ -44,7 +44,17 @@ export const api = {
   },
 
   auctions: {
-    get: (id: string) => apiFetch<Auction>(`/api/v1/auctions/${id}`),
+    get: (id: string) =>
+      apiFetch<Auction>(`/api/v1/auctions/${id}`),
+
+    getBids: (auctionId: string) =>
+      apiFetch<BidsListResponse>(`/api/v1/auctions/${auctionId}/bids`),
+
+    placeBid: (auctionId: string, amountPaisa: number) =>
+      apiFetch<BidResponse>(`/api/v1/auctions/${auctionId}/bids`, {
+        method: 'POST',
+        body: JSON.stringify({ bid_amount_paisa: amountPaisa }),
+      }),
   },
 
   wallet: {

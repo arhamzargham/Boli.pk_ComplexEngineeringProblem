@@ -3,6 +3,7 @@ import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import StatsBar from '@/components/layout/StatsBar'
 import ListingCard from '@/components/listing/ListingCard'
+import SearchBar from '@/components/listing/SearchBar'
 import { api } from '@/lib/api'
 import type { Listing } from '@/types'
 
@@ -15,12 +16,14 @@ const TRUST_ITEMS = [
 
 const FILTER_CHIPS = ['All devices', 'iPhone', 'Samsung', 'OnePlus', 'Pixel', 'PTA Only']
 
-async function getListings(): Promise<{ listings: Listing[]; note: string }> {
+async function getListings(q?: string): Promise<{ listings: Listing[]; note: string }> {
   try {
-    const active = await api.listings.list({ status: 'ACTIVE', limit: 6 })
+    const params: { status?: string; limit?: number; q?: string } = { status: 'ACTIVE', limit: 12 }
+    if (q) params.q = q
+    const active = await api.listings.list(params)
     if (active.data.length > 0) return { listings: active.data, note: '' }
 
-    const sold = await api.listings.list({ status: 'SOLD', limit: 6 })
+    const sold = await api.listings.list({ status: 'SOLD', limit: 12 })
     return {
       listings: sold.data,
       note: sold.data.length > 0 ? 'Showing recently sold listings — seed an ACTIVE listing to populate the feed.' : '',
@@ -30,8 +33,13 @@ async function getListings(): Promise<{ listings: Listing[]; note: string }> {
   }
 }
 
-export default async function HomePage() {
-  const { listings, note } = await getListings()
+interface PageProps {
+  searchParams: { q?: string }
+}
+
+export default async function HomePage({ searchParams }: PageProps) {
+  const query = searchParams.q ?? ''
+  const { listings, note } = await getListings(query)
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -51,17 +59,7 @@ export default async function HomePage() {
           </p>
           <p className="text-[12px] text-white/30 italic mt-1">Boli tumhari. Guarantee hamari.</p>
 
-          {/* Search */}
-          <div className="flex gap-2 mt-5 max-w-[520px]">
-            <input
-              type="text"
-              placeholder="Search iPhone, Samsung, Pixel, OnePlus…"
-              className="flex-1 bg-white/8 border border-copper/25 rounded-[9px] px-3.5 py-2.5 text-[13px] text-white placeholder-white/35 focus:outline-none focus:border-copper/60"
-            />
-            <button className="bg-copper text-white text-[13px] px-5 rounded-[9px] hover:bg-copper/90 transition-colors flex-shrink-0">
-              Search
-            </button>
-          </div>
+          <SearchBar initialQuery={query} />
 
           {/* Quick filter chips */}
           <div className="flex gap-2 mt-3 flex-wrap">
@@ -124,6 +122,12 @@ export default async function HomePage() {
             <span className="text-copper">Home</span>
             <span className="text-text-faint mx-1.5">›</span>
             <span className="text-text-muted">Marketplace</span>
+            {query && (
+              <>
+                <span className="text-text-faint mx-1.5">›</span>
+                <span className="text-text-muted">&ldquo;{query}&rdquo;</span>
+              </>
+            )}
           </nav>
           <span className="text-[11px] text-text-faint">{listings.length} listings</span>
         </div>
@@ -147,7 +151,9 @@ export default async function HomePage() {
           ) : (
             <div className="text-center py-16 text-text-faint">
               <p className="text-[13px]">No listings found.</p>
-              <p className="text-[11px] mt-1">The API may be offline or no listings are seeded yet.</p>
+              <p className="text-[11px] mt-1">
+                {query ? `No results for "${query}" — try a different search.` : 'The API may be offline or no listings are seeded yet.'}
+              </p>
             </div>
           )}
 

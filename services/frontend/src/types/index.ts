@@ -93,3 +93,27 @@ export interface ListingsResponse {
   limit: number
   offset: number
 }
+
+export interface Bid {
+  bid_id: string
+  auction_id: string
+  bidder_id: string
+  bid_amount_paisa: number
+  status: 'ACTIVE' | 'OUTBID' | 'WINNING' | 'WON' | 'CANCELLED'
+  placed_at: string
+  rank?: number
+}
+
+export interface BidResponse {
+  bid_id: string
+  auction_id: string
+  bid_amount_paisa: number
+  status: string
+  placed_at: string
+  message: string
+}
+
+export interface BidsListResponse {
+  data: Bid[]
+  count: number
+}
