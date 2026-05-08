@@ -117,3 +117,58 @@ export interface BidsListResponse {
   data: Bid[]
   count: number
 }
+
+export interface Transaction {
+  transaction_id: string
+  listing_id: string
+  auction_id: string
+  buyer_id: string
+  seller_id: string
+  winning_bid_paisa: number
+  buyer_fee_paisa: number
+  seller_fee_paisa: number
+  wht_paisa: number
+  ict_paisa: number
+  net_to_seller_paisa: number
+  status:
+    | 'PENDING_MEETUP'
+    | 'MEETUP_CONFIRMED'
+    | 'QR_SCANNED'
+    | 'SETTLED'
+    | 'DISPUTED'
+    | 'REFUNDED'
+    | 'CANCELLED'
+  created_at: string
+  settled_at?: string
+  meetup_confirmed_at?: string
+  qr_expires_at?: string
+  settlement_receipt_hash?: string
+  make: string
+  model: string
+}
+
+export interface AdminListingRow {
+  listing_id: string
+  make: string
+  model: string
+  storage_gb?: number
+  condition_rating: number
+  reserve_price_paisa: number
+  pta_status?: 'REGISTERED_CLEAN' | 'UNREGISTERED' | 'BLACKLISTED'
+  status: string
+  vetting_classification?: string
+  composite_score?: number
+  created_at: string
+  seller_id: string
+}
+
+export interface AdminUserRow {
+  user_id: string
+  phone: string
+  role: 'BUYER' | 'SELLER' | 'ADMIN'
+  kyc_tier: 'BASIC' | 'FULL'
+  is_suspended: boolean
+  created_at: string
+  total_listings: number
+  total_transactions: number
+}

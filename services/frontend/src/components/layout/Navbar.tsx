@@ -79,6 +79,14 @@ export default function Navbar({ variant = 'main' }: NavbarProps) {
         <div className="hidden md:flex items-center gap-3 ml-auto">
           {mounted && auth ? (
             <>
+              {auth.kycTier === 'BASIC' && (
+                <Link
+                  href="/kyc"
+                  className="bg-reviewed-bg text-reviewed-text text-[9px] px-2 py-0.5 rounded border border-reviewed-text/20 hover:opacity-80 transition-opacity"
+                >
+                  KYC BASIC → Upgrade
+                </Link>
+              )}
               {wallet && (
                 <span className="text-[12px] text-copper font-mono">
                   {paisaToRs(wallet.available_paisa)}

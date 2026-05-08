@@ -1,4 +1,4 @@
-import type { AuthResponse, Listing, ListingDetail, ListingsResponse, Auction, Wallet, BidResponse, BidsListResponse } from '@/types'
+import type { AuthResponse, Listing, ListingDetail, ListingsResponse, Auction, Wallet, BidResponse, BidsListResponse, Transaction, AdminListingRow, AdminUserRow } from '@/types'
 
 // Server components (SSR): direct URL. Client components: proxy via Next.js rewrite.
 const BASE =
@@ -57,6 +57,11 @@ export const api = {
       }),
   },
 
+  transactions: {
+    get: (id: string) =>
+      apiFetch<Transaction>(`/api/v1/transactions/${id}`),
+  },
+
   wallet: {
     get: () => apiFetch<Wallet>('/api/v1/wallet'),
   },
@@ -83,5 +88,27 @@ export const api = {
           body: JSON.stringify({ user_id: userId, amount_paisa: amountPaisa, note }),
         }
       ),
+
+    getListings: (params: { status?: string; limit?: number; offset?: number } = {}) => {
+      const qs = new URLSearchParams(
+        Object.entries(params)
+          .filter(([, v]) => v !== undefined)
+          .map(([k, v]) => [k, String(v)])
+      ).toString()
+      return apiFetch<{ data: AdminListingRow[]; count: number }>(
+        `/api/v1/admin/listings${qs ? `?${qs}` : ''}`
+      )
+    },
+
+    getUsers: (params: { limit?: number; offset?: number } = {}) => {
+      const qs = new URLSearchParams(
+        Object.entries(params)
+          .filter(([, v]) => v !== undefined)
+          .map(([k, v]) => [k, String(v)])
+      ).toString()
+      return apiFetch<{ data: AdminUserRow[]; count: number }>(
+        `/api/v1/admin/users${qs ? `?${qs}` : ''}`
+      )
+    },
   },
 }

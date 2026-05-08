@@ -16,12 +16,12 @@ import { paisaToRs } from '@/lib/formatters'
 import type { Wallet } from '@/types'
 
 // Hardcoded transaction history matching seed data (API doesn't return ledger yet)
-const STATIC_TXS: { title: string; date: string; amountPaisa: number; type: TxType; note?: string }[] = [
-  { title: 'Deposit — Admin funding',      date: '27 Apr 2026 · 09:00 AM', amountPaisa: 50_000_000, type: 'DEPOSIT'     },
-  { title: 'Escrow lock — iPhone 14 Pro',  date: '30 Apr 2026 · 12:01 PM', amountPaisa: 22_440_000, type: 'ESCROW_LOCK' },
-  { title: 'Escrow lock — iPhone 13',      date: '28 Apr 2026 · 10:01 AM', amountPaisa: 15_300_000, type: 'ESCROW_LOCK' },
-  { title: 'Bid reserve — Galaxy A54',     date: '30 Apr 2026 · 08:30 AM', amountPaisa: 8_670_000,  type: 'BID_RESERVE' },
-  { title: 'Bid release — Samsung S23',    date: '29 Apr 2026 · 06:15 PM', amountPaisa: 15_300_000, type: 'BID_RELEASE', note: 'Outbid' },
+const STATIC_TXS: { title: string; date: string; amountPaisa: number; type: TxType; note?: string; txId: string }[] = [
+  { title: 'Deposit — Admin funding',      date: '27 Apr 2026 · 09:00 AM', amountPaisa: 50_000_000, type: 'DEPOSIT',     txId: 'f1000001-0000-4000-8000-000000000001' },
+  { title: 'Escrow lock — iPhone 14 Pro',  date: '30 Apr 2026 · 12:01 PM', amountPaisa: 22_440_000, type: 'ESCROW_LOCK', txId: 'f1000002-0000-4000-8000-000000000002' },
+  { title: 'Escrow lock — iPhone 13',      date: '28 Apr 2026 · 10:01 AM', amountPaisa: 15_300_000, type: 'ESCROW_LOCK', txId: 'f1000003-0000-4000-8000-000000000003' },
+  { title: 'Bid reserve — Galaxy A54',     date: '30 Apr 2026 · 08:30 AM', amountPaisa: 8_670_000,  type: 'BID_RESERVE', txId: 'f1000004-0000-4000-8000-000000000004' },
+  { title: 'Bid release — Samsung S23',    date: '29 Apr 2026 · 06:15 PM', amountPaisa: 15_300_000, type: 'BID_RELEASE', note: 'Outbid', txId: 'f1000005-0000-4000-8000-000000000005' },
 ]
 
 export default function WalletPage() {
@@ -145,7 +145,13 @@ export default function WalletPage() {
             </div>
             <div className="border-t border-border">
               {STATIC_TXS.map((tx, i) => (
-                <TransactionRow key={i} {...tx} />
+                <Link
+                  key={i}
+                  href={`/transactions/${tx.txId}`}
+                  className="block hover:bg-cream rounded-lg transition-colors -mx-3.5 px-3.5"
+                >
+                  <TransactionRow {...tx} />
+                </Link>
               ))}
             </div>
           </div>
