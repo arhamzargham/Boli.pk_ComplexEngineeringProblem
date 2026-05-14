@@ -15,6 +15,7 @@ import (
 	"boli.pk/gateway/internal/admin"
 	"boli.pk/gateway/internal/auction"
 	"boli.pk/gateway/internal/auth"
+	"boli.pk/gateway/internal/dispute"
 	"boli.pk/gateway/internal/listing"
 	"boli.pk/gateway/internal/middleware"
 	"boli.pk/gateway/internal/transaction"
@@ -35,6 +36,7 @@ func main() {
 	auctionH := auction.NewHandler(db)
 	walletH  := wallet.NewHandler(db)
 	txH      := transaction.NewHandler(db)
+	disputeH := dispute.NewHandler(db)
 	adminH   := admin.NewHandler(db)
 	authMW   := middleware.NewAuth(rdb, jwtSecret)
 
@@ -74,7 +76,13 @@ func main() {
 	// ── Transactions (protected — buyer or seller only) ────────
 	txG := v1.Group("/transactions")
 	txG.Use(authMW.RequireAuth())
-	txG.GET("/:id", txH.Get)
+	txG.GET("/:id", txH.GetTransaction)
+	txG.POST("/:id/disputes", disputeH.CreateDispute)
+
+	// ── Disputes (protected) ──────────────────────────────────
+	disputeG := v1.Group("/disputes")
+	disputeG.Use(authMW.RequireAuth())
+	disputeG.GET("/:dispute_id", disputeH.GetDispute)
 
 	// ── Admin (protected — ADMIN role only) ───────────────────
 	adminG := v1.Group("/admin")
