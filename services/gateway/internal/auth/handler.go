@@ -141,31 +141,42 @@ func (h *Handler) VerifyOTP(c *gin.Context) {
 	refreshToken := newUUID() + newUUID()
 	refreshHash := hashStr(refreshToken)
 
-	// 5. Persist UserSession
+	// 5. Build device hash
 	ip := c.ClientIP()
 	fp := c.GetHeader("User-Agent")
 	if fp == "" {
 		fp = "unknown"
 	}
+	deviceHash := hashStr(fp + c.GetHeader("Accept-Language") + c.GetHeader("Time-Zone"))
 
+	// 6. Persist UserSession
 	_, err = h.db.ExecContext(ctx, `
 		INSERT INTO user_sessions
 		    (session_id, user_id, device_fingerprint, ip_address,
 		     jwt_access_token_hash, refresh_token_hash,
 		     access_token_expires_at, refresh_token_expires_at,
-		     is_active, created_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,TRUE,NOW())
+		     is_active, created_at, device_hash)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,TRUE,NOW(),$9)
 		ON CONFLICT (session_id) DO NOTHING`,
 		sessionID, pu.UserID, fp, ip,
 		hashStr(signed), refreshHash,
-		accessExp, refreshExp,
+		accessExp, refreshExp, deviceHash,
 	)
 	if err != nil {
 		apiErr(c, http.StatusInternalServerError, "DB_ERROR", "could not persist session")
 		return
 	}
 
-	// 6. Register sessionId in Redis active_sessions:{userId} (NR-05)
+	// Calculate sybil risk score
+	riskScore, _ := h.calcSybilRiskScore(ctx, pu.UserID, req.Phone, deviceHash, ip)
+	if riskScore > 0.85 {
+		_, _ = h.db.ExecContext(ctx, `
+			INSERT INTO risk_audit (entity_type, entity_id, risk_type, score, reason)
+			VALUES ('USER_SESSION', $1::uuid, 'SYBIL', $2, 'Sybil risk score exceeds 0.85 threshold')`,
+			sessionID, riskScore)
+	}
+
+	// 7. Register sessionId in Redis active_sessions:{userId} (NR-05)
 	h.rdb.SAdd(ctx, "active_sessions:"+pu.UserID, sessionID)
 
 	// Return access token in body; refresh token as HTTP-only cookie
@@ -180,6 +191,79 @@ func (h *Handler) VerifyOTP(c *gin.Context) {
 		"role":         pu.Role,
 		"kyc_tier":     pu.KycTier,
 	})
+}
+
+func (h *Handler) calcSybilRiskScore(ctx context.Context, userID, phone, deviceHash, sessionIP string) (float64, error) {
+	var scores []float64
+
+	// Factor 1: Multiple accounts on same device
+	var otherAccounts int
+	err := h.db.QueryRowContext(ctx, `
+		SELECT COUNT(DISTINCT user_id) 
+		FROM user_sessions 
+		WHERE device_hash = $1 AND user_id != $2::uuid 
+		  AND created_at > NOW() - INTERVAL '30 DAYS'`, 
+		deviceHash, userID).Scan(&otherAccounts)
+	
+	if err == nil {
+		if otherAccounts > 3 {
+			scores = append(scores, 0.9)
+		} else if otherAccounts > 1 {
+			scores = append(scores, 0.6)
+		} else {
+			scores = append(scores, 0.1)
+		}
+	}
+
+	// Factor 2: IP address clustering
+	rows, err := h.db.QueryContext(ctx, `
+		SELECT DISTINCT ip_address 
+		FROM user_sessions 
+		WHERE user_id = $1::uuid AND created_at > NOW() - INTERVAL '7 DAYS'`, userID)
+	if err == nil {
+		defer rows.Close()
+		var ips []string
+		for rows.Next() {
+			var ip string
+			if rows.Scan(&ip) == nil {
+				ips = append(ips, ip)
+			}
+		}
+		if len(ips) > 5 {
+			scores = append(scores, 0.1)
+		} else {
+			ipMatch := false
+			for _, ip := range ips {
+				if ip == sessionIP {
+					ipMatch = true
+					break
+				}
+			}
+			if !ipMatch {
+				scores = append(scores, 0.3)
+			} else {
+				scores = append(scores, 0.1)
+			}
+		}
+	}
+
+	// Factor 3: Phone number uniqueness
+	// Actually users table doesn't have phone, wait, does users table have phone?
+	// The auth logic maps phone to userID statically using phoneUsers for CEP.
+	// We'll mimic the phone check. Since phoneUsers maps phone -> userID 1:1, there are NO duplicate phones.
+	// But to follow the algorithm:
+	// We don't have phone in users table according to init.sql!
+	// So we'll skip the DB query for phone and just append 0.1 (safe) or skip it.
+	
+	if len(scores) == 0 {
+		return 0.0, nil
+	}
+	
+	var sum float64
+	for _, s := range scores {
+		sum += s
+	}
+	return sum / float64(len(scores)), nil
 }
 
 // ─── helpers ─────────────────────────────────────────────────────────────────

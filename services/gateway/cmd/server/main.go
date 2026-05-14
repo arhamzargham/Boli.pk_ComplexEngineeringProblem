@@ -88,6 +88,7 @@ func main() {
 	adminG := v1.Group("/admin")
 	adminG.Use(authMW.RequireAuth(), middleware.RequireRole("ADMIN"))
 	adminG.POST("/wallets/fund", adminH.FundWallet)
+	adminG.GET("/risk-flags", adminH.GetRiskFlags)
 
 	log.Println("boli.pk gateway listening on :8080")
 	if err := r.Run(":8080"); err != nil {

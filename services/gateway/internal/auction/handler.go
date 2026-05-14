@@ -1,6 +1,7 @@
 package auction
 
 import (
+	"context"
 	"database/sql"
 	"net/http"
 	"time"
@@ -167,15 +168,16 @@ func (h *Handler) PlaceBid(c *gin.Context) {
 
 	// 1. Load auction — must be ACTIVE or CLOSING
 	var (
-		reservePricePaisa int64
-		auctionStatus     string
+		reservePricePaisa  int64
+		auctionStatus      string
+		closingWindowStart time.Time
 	)
 	err := h.db.QueryRowContext(ctx, `
-		SELECT reserve_price_paisa, status::text
+		SELECT reserve_price_paisa, status::text, closing_window_start
 		FROM auctions
 		WHERE auction_id = $1::uuid`,
 		auctionID,
-	).Scan(&reservePricePaisa, &auctionStatus)
+	).Scan(&reservePricePaisa, &auctionStatus, &closingWindowStart)
 	if err == sql.ErrNoRows {
 		apiErr(c, http.StatusNotFound, "AUCTION_NOT_FOUND", "auction not found")
 		return
@@ -212,6 +214,18 @@ func (h *Handler) PlaceBid(c *gin.Context) {
 			"bid_id":  existingBidID,
 			"message": "duplicate request — returning existing bid",
 		})
+		return
+	}
+
+	// Calculate shill risk score
+	riskScore, err := h.calcShillRiskScore(ctx, auctionID, req.AmountPaisa, closingWindowStart)
+	if err != nil {
+		apiErr(c, http.StatusInternalServerError, "RISK_CALC_FAILED", "could not calculate risk score")
+		return
+	}
+
+	if riskScore > 0.90 {
+		apiErr(c, http.StatusForbidden, "SUSPICIOUS_BID", "Suspicious bidding pattern")
 		return
 	}
 
@@ -290,14 +304,21 @@ func (h *Handler) PlaceBid(c *gin.Context) {
 	err = tx.QueryRowContext(ctx, `
 		INSERT INTO bids
 		    (auction_id, bidder_id, amount_paisa, total_with_fee_paisa,
-		     status, idempotency_key, created_at)
-		VALUES ($1::uuid, $2::uuid, $3, $4, 'ACCEPTED', $5::uuid, NOW())
+		     status, idempotency_key, created_at, shill_risk_score)
+		VALUES ($1::uuid, $2::uuid, $3, $4, 'ACCEPTED', $5::uuid, NOW(), $6)
 		RETURNING bid_id`,
-		auctionID, bidderID, req.AmountPaisa, totalWithFee, req.IdempotencyKey,
+		auctionID, bidderID, req.AmountPaisa, totalWithFee, req.IdempotencyKey, riskScore,
 	).Scan(&newBidID)
 	if err != nil {
 		apiErr(c, http.StatusInternalServerError, "DB_ERROR", "could not record bid")
 		return
+	}
+
+	if riskScore > 0.75 {
+		_, _ = tx.ExecContext(ctx, `
+			INSERT INTO risk_audit (entity_type, entity_id, risk_type, score, reason)
+			VALUES ('BID', $1::uuid, 'SHILL', $2, 'Shill risk score exceeds 0.75 threshold')`,
+			newBidID, riskScore)
 	}
 
 	// 8. Increment auction bid count
@@ -329,4 +350,77 @@ func apiErr(c *gin.Context, status int, code, message string) {
 	c.JSON(status, gin.H{
 		"error": gin.H{"code": code, "message": message, "details": gin.H{}},
 	})
+}
+
+func (h *Handler) calcShillRiskScore(ctx context.Context, auctionID string, newBid int64, closingWindowStart time.Time) (float64, error) {
+	rows, err := h.db.QueryContext(ctx, `
+		SELECT amount_paisa, bidder_id, created_at 
+		FROM bids 
+		WHERE auction_id = $1::uuid 
+		ORDER BY created_at DESC LIMIT 10`, auctionID)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+
+	type bid struct {
+		amount   int64
+		bidderID string
+		placedAt time.Time
+	}
+	var bids []bid
+	for rows.Next() {
+		var b bid
+		if err := rows.Scan(&b.amount, &b.bidderID, &b.placedAt); err != nil {
+			return 0, err
+		}
+		bids = append(bids, b)
+	}
+
+	if len(bids) < 2 {
+		return 0.0, nil
+	}
+
+	lastBid := bids[0].amount
+	if lastBid == 0 {
+		return 0.0, nil
+	}
+
+	incrementPaisa := newBid - lastBid
+	incrementPct := float64(incrementPaisa) / float64(lastBid) * 100
+
+	var scores []float64
+
+	// Factor 1
+	if incrementPct < 2.5 {
+		scores = append(scores, 0.8)
+	} else if incrementPct < 5.0 {
+		scores = append(scores, 0.5)
+	} else if incrementPct > 15.0 {
+		scores = append(scores, 0.3)
+	} else {
+		scores = append(scores, 0.1)
+	}
+
+	// Factor 2
+	if len(bids) >= 2 && bids[1].bidderID == bids[0].bidderID {
+		timeDelta := time.Since(bids[1].placedAt).Seconds()
+		if timeDelta < 30 {
+			scores = append(scores, 0.7)
+		}
+	}
+
+	// Factor 3
+	if time.Now().After(closingWindowStart) {
+		scores = append(scores, 0.2)
+	}
+
+	if len(scores) == 0 {
+		return 0.0, nil
+	}
+	var sum float64
+	for _, s := range scores {
+		sum += s
+	}
+	return sum / float64(len(scores)), nil
 }

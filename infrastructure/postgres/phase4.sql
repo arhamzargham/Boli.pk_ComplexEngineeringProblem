@@ -52,3 +52,21 @@ DROP TRIGGER IF EXISTS trg_dispute_insert ON disputes;
 CREATE TRIGGER trg_dispute_insert
 BEFORE INSERT ON disputes
 FOR EACH ROW EXECUTE FUNCTION fn_dispute_insert();
+
+-- =============================================================
+-- WORKSTREAM BETA: AI & PROBABILISTIC CORE
+-- =============================================================
+
+ALTER TABLE bids ADD COLUMN IF NOT EXISTS shill_risk_score DECIMAL(3,2);
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS metadata_outlier_score DECIMAL(3,2);
+ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS device_hash VARCHAR(64);
+
+CREATE TABLE IF NOT EXISTS risk_audit (
+    audit_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    entity_type VARCHAR(50) NOT NULL, -- 'BID', 'LISTING', 'USER_SESSION'
+    entity_id UUID NOT NULL,
+    risk_type VARCHAR(50) NOT NULL,   -- 'SHILL', 'SYBIL', 'OUTLIER'
+    score DECIMAL(3,2) NOT NULL,
+    reason TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
