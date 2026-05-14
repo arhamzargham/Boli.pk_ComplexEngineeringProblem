@@ -1,0 +1,17 @@
+{
+  "token_hmac_secret_key": "boli-centrifugo-secret-2024",
+  "admin": true,
+  "admin_password": "boli-admin",
+  "admin_secret": "boli-admin-secret",
+  "api_key": "boli-api-key",
+  "allowed_origins": ["*"],
+  "namespaces": [
+    {
+      "name": "auction",
+      "presence": true,
+      "join_leave": true,
+      "history_size": 100,
+      "history_ttl": "300s"
+    }
+  ]
+}

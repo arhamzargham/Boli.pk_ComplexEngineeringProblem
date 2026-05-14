@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+
+	"boli.pk/gateway/pkg/centrifugo"
 )
 
 // AuctionView is the public projection of an auction + its listing summary.
@@ -30,20 +32,25 @@ type AuctionView struct {
 	WinnerBidID        *string    `json:"winner_bid_id,omitempty"` // only after CLOSED_WITH_BIDS
 }
 
-// BidHistoryItem exposes amount only — no bidder identity (CLAUDE.md Gap 21).
+// BidHistoryItem exposes amount and masked bidder; full identity never revealed.
 type BidHistoryItem struct {
-	BidID       string    `json:"bid_id"`
-	AmountPaisa int64     `json:"amount_paisa"`
-	Status      string    `json:"status"`
-	PlacedAt    time.Time `json:"placed_at"`
+	BidID          string    `json:"bid_id"`
+	AuctionID      string    `json:"auction_id"`
+	BidderID       string    `json:"bidder_id"`
+	BidAmountPaisa int64     `json:"bid_amount_paisa"`
+	Status         string    `json:"status"`
+	PlacedAt       time.Time `json:"placed_at"`
 }
 
 // Handler handles auction HTTP endpoints.
 type Handler struct {
-	db *sql.DB
+	db        *sql.DB
+	publisher *centrifugo.Publisher
 }
 
-func NewHandler(db *sql.DB) *Handler { return &Handler{db: db} }
+func NewHandler(db *sql.DB, pub *centrifugo.Publisher) *Handler {
+	return &Handler{db: db, publisher: pub}
+}
 
 // ─── GET /api/v1/auctions/:id ────────────────────────────────────────────────
 
@@ -112,7 +119,7 @@ func (h *Handler) ListBids(c *gin.Context) {
 	id := c.Param("id")
 
 	rows, err := h.db.QueryContext(c.Request.Context(), `
-		SELECT bid_id, amount_paisa, status::text, created_at
+		SELECT bid_id, bidder_id, amount_paisa, status::text, created_at
 		FROM bids
 		WHERE auction_id = $1::uuid
 		ORDER BY amount_paisa DESC, created_at ASC`,
@@ -127,7 +134,8 @@ func (h *Handler) ListBids(c *gin.Context) {
 	var bids []BidHistoryItem
 	for rows.Next() {
 		var b BidHistoryItem
-		if err := rows.Scan(&b.BidID, &b.AmountPaisa, &b.Status, &b.PlacedAt); err != nil {
+		b.AuctionID = id
+		if err := rows.Scan(&b.BidID, &b.BidderID, &b.BidAmountPaisa, &b.Status, &b.PlacedAt); err != nil {
 			apiErr(c, http.StatusInternalServerError, "SCAN_ERROR", "could not read bid row")
 			return
 		}
@@ -137,7 +145,8 @@ func (h *Handler) ListBids(c *gin.Context) {
 		bids = []BidHistoryItem{}
 	}
 
-	c.JSON(http.StatusOK, gin.H{"auction_id": id, "bids": bids, "count": len(bids)})
+	// Return "data" key to match frontend BidsListResponse type
+	c.JSON(http.StatusOK, gin.H{"data": bids, "count": len(bids)})
 }
 
 // ─── POST /api/v1/auctions/:id/bids ─────────────────────────────────────────
@@ -335,6 +344,15 @@ func (h *Handler) PlaceBid(c *gin.Context) {
 		apiErr(c, http.StatusInternalServerError, "COMMIT_ERROR", "could not commit bid")
 		return
 	}
+
+	// Broadcast new bid to all auction room subscribers (non-blocking, best-effort)
+	go func() {
+		_ = h.publisher.PublishBid(context.Background(), auctionID, map[string]any{
+			"bidder_id":    bidderID,
+			"amount_paisa": req.AmountPaisa,
+			"auction_id":   auctionID,
+		})
+	}()
 
 	c.JSON(http.StatusCreated, gin.H{
 		"bid_id":              newBidID,

@@ -23,6 +23,7 @@ import (
 	"boli.pk/gateway/internal/sms"
 	zlog "boli.pk/gateway/internal/log"
 	"boli.pk/gateway/internal/metrics"
+	"boli.pk/gateway/pkg/centrifugo"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 )
@@ -38,7 +39,8 @@ func main() {
 	// ── Handlers ──────────────────────────────────────────────
 	authH    := auth.NewHandler(db, rdb, jwtSecret, sms.NewProvider())
 	listingH := listing.NewHandler(db)
-	auctionH := auction.NewHandler(db)
+	pub      := centrifugo.NewPublisher()
+	auctionH := auction.NewHandler(db, pub)
 	walletH  := wallet.NewHandler(db)
 	txH      := transaction.NewHandler(db)
 	disputeH := dispute.NewHandler(db)
@@ -101,8 +103,12 @@ func main() {
 	// ── Admin (protected — ADMIN role only) ───────────────────
 	adminG := v1.Group("/admin")
 	adminG.Use(authMW.RequireAuth(), middleware.RequireRole("ADMIN"))
-	adminG.POST("/wallets/fund", adminH.FundWallet)
-	adminG.GET("/risk-flags", adminH.GetRiskFlags)
+	adminG.POST("/wallets/fund",         adminH.FundWallet)
+	adminG.GET("/risk-flags",            adminH.GetRiskFlags)
+	adminG.GET("/listings",              adminH.ListListings)
+	adminG.PATCH("/listings/:id",        adminH.UpdateListingStatus)
+	adminG.GET("/users",                 adminH.ListUsers)
+	adminG.PATCH("/users/:id",           adminH.UpdateUserStatus)
 
 	zlog.Logger.Info("boli.pk gateway listening on :8080")
 	if err := r.Run(":8080"); err != nil {

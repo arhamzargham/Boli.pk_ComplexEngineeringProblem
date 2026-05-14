@@ -1,16 +1,16 @@
 # Boli.pk — single-command CEP deployment
-# Usage: docker-compose up --build
+# Usage: docker compose up --build
 #
 # Services
 #   postgres    PostgreSQL 16 — financial ledger, schema + seed on first start
 #   redis       Redis 7       — bid cache, EDA bus, OTP store, session set
-#   gateway     Go 1.22       — API gateway + WebSocket bidding engine
-#   ai-vetting  Python 3.11   — AI vetting pipeline (placeholder: sleep infinity)
+#   gateway     Go 1.23       — API gateway + WebSocket bidding engine
+#   ai-vetting  Python 3.11   — AI vetting pipeline (FastAPI + EfficientNet)
+#   centrifugo  Centrifugo v5 — WebSocket pub/sub for real-time auction room
+#   frontend    Next.js 14    — React SSR frontend
 #
 # All external dependencies (PTA DIRBS, FBR NTN, payment gateway) are mocked.
 # No external internet required after images are pulled.
-
-version: "3.9"
 
 networks:
   boli-network:
@@ -80,14 +80,17 @@ services:
       REDIS_URL: "redis:6379"
       # JWT signing secret — minimum 32 chars
       JWT_SECRET: "boli_dev_jwt_secret_min_32_chars_x"
-      # AI vetting service base URL
-      AI_VETTING_URL: "http://ai-vetting:8002"
+      # AI vetting service base URL (uvicorn runs on port 8000)
+      AI_VETTING_URL: "http://ai-vetting:8000"
       # Bootstrap CLI secret (one-time; rotated after admin setup)
       BOOTSTRAP_SECRET: "boli_dev_bootstrap_secret"
       # Max simultaneous active listings per seller (CLAUDE.md Gap 20)
       MAX_ACTIVE_LISTINGS_PER_SELLER: "5"
       # Gin mode: debug for CEP, release for production
       GIN_MODE: "debug"
+      # Centrifugo real-time pub/sub
+      CENTRIFUGO_API_URL: "http://centrifugo:8000/api"
+      CENTRIFUGO_API_KEY: "boli-api-key"
     ports:
       - "8080:8080"
     depends_on:
@@ -102,20 +105,36 @@ services:
       retries: 5
       start_period: 15s
 
-  # ── AI Vetting (placeholder) ──────────────────────────────────
-  # Full FastAPI implementation comes after the Go gateway is complete.
-  # Placeholder keeps the service discoverable on boli-network so
-  # gateway environment variable AI_VETTING_URL resolves correctly.
+  # ── AI Vetting — FastAPI + EfficientNet-B0 ────────────────────
   ai-vetting:
     image: python:3.11-slim
     restart: unless-stopped
     networks:
       - boli-network
+    working_dir: /app
+    volumes:
+      - ./services/ai-vetting:/app
     environment:
       MOCK_DIRBS:    "true"
       MOCK_GSMA_TAC: "true"
-    command: ["sleep", "infinity"]
-    # No ports exposed — only reachable by gateway on boli-network
+    command: bash -c "pip install -r requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+    # Port 8000 reachable by gateway on boli-network only
+
+  # ── Centrifugo v5 — WebSocket pub/sub ─────────────────────────
+  centrifugo:
+    image: centrifugo/centrifugo:v5
+    restart: unless-stopped
+    networks:
+      - boli-network
+    command: centrifugo -c config.json
+    volumes:
+      - ./infrastructure/centrifugo/config.json:/centrifugo/config.json
+    environment:
+      CENTRIFUGO_ADMIN: "true"
+    ports:
+      - "8001:8000"
+    depends_on:
+      - gateway
 
   # ── Next.js Frontend ─────────────────────────────────────────
   frontend:
