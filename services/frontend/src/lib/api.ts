@@ -1,4 +1,4 @@
-import type { AuthResponse, Listing, ListingDetail, ListingsResponse, Auction, Wallet, BidResponse, BidsListResponse, Transaction, AdminListingRow, AdminUserRow } from '@/types'
+import type { AuthResponse, ListingDetail, ListingsResponse, Auction, Wallet, BidResponse, BidsListResponse, Transaction, AdminListingRow, AdminUserRow } from '@/types'
 
 // Server components (SSR): direct URL. Client components: proxy via Next.js rewrite.
 const BASE =
@@ -60,6 +60,12 @@ export const api = {
   transactions: {
     get: (id: string) =>
       apiFetch<Transaction>(`/api/v1/transactions/${id}`),
+
+    generateQr: (id: string) =>
+      apiFetch<{ qr_data: string; expires_at: string; transaction_id: string }>(
+        `/api/v1/transactions/${id}/qr/generate`,
+        { method: 'POST' }
+      ),
   },
 
   wallet: {
@@ -110,5 +116,22 @@ export const api = {
         `/api/v1/admin/users${qs ? `?${qs}` : ''}`
       )
     },
+
+    updateListingStatus: (id: string, body: { status: 'active' | 'suspended' | 'sold' }) =>
+      apiFetch<{ ok: boolean }>(`/api/v1/admin/listings/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      }),
+
+    updateUserStatus: (id: string, body: { kyc_status: 'verified' | 'pending' | 'rejected' }) =>
+      apiFetch<{ ok: boolean }>(`/api/v1/admin/users/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      }),
+
+    getRiskFlags: () =>
+      apiFetch<{ data: { entity_type: string; entity_id: string; risk_type: string; score: number; reason: string; created_at: string }[]; count: number }>(
+        '/api/v1/admin/risk-flags'
+      ),
   },
 }

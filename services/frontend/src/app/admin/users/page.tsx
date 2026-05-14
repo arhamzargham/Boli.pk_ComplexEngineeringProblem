@@ -41,7 +41,7 @@ const FALLBACK_USERS: AdminUserRowType[] = [
 export default function AdminUsersPage() {
   const [users, setUsers]     = useState<AdminUserRowType[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError]     = useState<string | null>(null)
+  const [error]               = useState<string | null>(null)
 
   useEffect(() => {
     api.admin.getUsers({ limit: 50 })

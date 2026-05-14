@@ -17,8 +17,6 @@ interface Props {
   onBidPlaced: () => void
 }
 
-const BUYER_FEE_PCT = 0.02
-
 export default function BidPanel({
   auctionId,
   currentHighBidPaisa,

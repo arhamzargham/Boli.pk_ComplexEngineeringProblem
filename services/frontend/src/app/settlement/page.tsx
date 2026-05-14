@@ -1,0 +1,68 @@
+import Link from 'next/link'
+import { CheckCircle2, XCircle } from 'lucide-react'
+
+interface Props {
+  searchParams: { transaction_id?: string; status?: string }
+}
+
+export default function SettlementPage({ searchParams }: Props) {
+  const txId   = searchParams.transaction_id ?? ''
+  const status = searchParams.status ?? ''
+  const isSuccess = status === 'success'
+
+  return (
+    <div className="min-h-screen bg-cream flex flex-col items-center justify-center px-4">
+      <div className="bg-surface border border-border rounded-xl shadow-raised p-8 w-full max-w-[420px] text-center">
+
+        {/* Status icon */}
+        <div className="flex justify-center mb-4">
+          {isSuccess ? (
+            <CheckCircle2 size={52} className="text-copper" strokeWidth={1.5} />
+          ) : (
+            <XCircle size={52} className="text-danger" strokeWidth={1.5} />
+          )}
+        </div>
+
+        {/* Heading */}
+        <h1 className="font-serif text-[24px] text-text-primary">
+          {isSuccess ? 'Settlement Complete' : 'Settlement Failed'}
+        </h1>
+
+        {/* Subheading */}
+        <p className="text-[13px] text-text-muted mt-2">
+          {isSuccess
+            ? 'Funds have been released to the seller.'
+            : 'Please contact support for assistance.'}
+        </p>
+
+        {/* Transaction ID */}
+        {txId && (
+          <div className="mt-5 bg-cream border border-border rounded-lg px-4 py-3">
+            <p className="text-[10px] text-text-faint uppercase tracking-wider mb-1">
+              Transaction ID
+            </p>
+            <p className="font-mono text-[12px] text-text-primary break-all">{txId}</p>
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex flex-col gap-2.5 mt-6">
+          {txId && (
+            <Link
+              href={`/transactions/${txId}`}
+              className="block w-full bg-copper text-white text-[13px] font-medium py-2.5 rounded-[9px] hover:bg-copper/90 transition-colors"
+            >
+              View Transaction
+            </Link>
+          )}
+          <Link
+            href="/"
+            className="block w-full border border-border text-[13px] text-text-muted py-2.5 rounded-[9px] hover:bg-cream transition-colors"
+          >
+            Back to Home
+          </Link>
+        </div>
+      </div>
+    </div>
+  )
+}

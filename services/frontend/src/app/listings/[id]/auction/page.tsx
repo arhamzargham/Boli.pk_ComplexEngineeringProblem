@@ -10,6 +10,7 @@ import BidPanel from '@/components/auction/BidPanel'
 import { api } from '@/lib/api'
 import { paisaToRs, conditionLabel } from '@/lib/formatters'
 import { getAuth, isAuthenticated } from '@/lib/auth'
+import { useCentrifugo } from '@/hooks/useCentrifugo'
 import type { ListingDetail, Auction, Bid } from '@/types'
 
 function AuctionRoomInner() {
@@ -80,6 +81,26 @@ function AuctionRoomInner() {
     const id = setInterval(() => void fetchAuctionData(), 5000)
     return () => clearInterval(id)
   }, [auctionId, loading, fetchAuctionData])
+
+  // Real-time bid updates via Centrifugo WebSocket
+  useCentrifugo({
+    auctionId,
+    onBid: (event) => {
+      setBids(prev => [{
+        bid_id:          `ws-${Date.now()}`,
+        auction_id:      event.auction_id,
+        bidder_id:       event.bidder_id,
+        bid_amount_paisa: event.amount_paisa,
+        status:          'ACTIVE' as const,
+        placed_at:       new Date().toISOString(),
+      }, ...prev])
+      setAuction(prev =>
+        prev && event.amount_paisa > (prev.highest_bid_paisa ?? 0)
+          ? { ...prev, highest_bid_paisa: event.amount_paisa, total_bid_count: prev.total_bid_count + 1 }
+          : prev
+      )
+    },
+  })
 
   const handleBidPlaced = useCallback(async () => {
     await fetchAuctionData()
@@ -240,7 +261,13 @@ function AuctionRoomInner() {
               {/* Bid history */}
               <div className="bg-surface border border-border rounded-xl p-3.5">
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-[12px] font-medium">Bid history</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-[12px] font-medium">Bid history</p>
+                    <div className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
+                      <span className="text-[11px] font-medium text-copper uppercase tracking-wide">Live</span>
+                    </div>
+                  </div>
                   <p className="text-[10px] text-text-faint">
                     {auction.total_bid_count} bids · refreshes every 5s
                   </p>

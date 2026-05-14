@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { api } from '@/lib/api'
 import AdminListingRow from '@/components/admin/AdminListingRow'
-import type { AdminListingRow as AdminListingRowType, Listing } from '@/types'
+import type { AdminListingRow as AdminListingRowType } from '@/types'
 
 const FILTERS = ['ACTIVE', 'PENDING_REVIEW', 'SOLD', 'ALL'] as const
 type Filter = typeof FILTERS[number]
