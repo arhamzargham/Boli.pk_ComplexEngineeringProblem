@@ -12,6 +12,7 @@ const STEPS = ['Personal', 'Documents', 'Review']
 
 interface FormData {
   fullName: string
+  phone: string
   cnic: string
   dateOfBirth: string
   cnicFrontFile: File | null
@@ -33,6 +34,7 @@ export default function KycPage() {
   const [submitted, setSubmitted] = useState(false)
   const [formData, setFormData] = useState<FormData>({
     fullName: '',
+    phone: '',
     cnic: '',
     dateOfBirth: '',
     cnicFrontFile: null,
@@ -51,6 +53,10 @@ export default function KycPage() {
   function validateStep1(): boolean {
     if (formData.fullName.trim().length < 3) {
       setError('Please enter your full name (at least 3 characters)')
+      return false
+    }
+    if (formData.phone && !/^\+92[0-9]{10}$/.test(formData.phone)) {
+      setError('Phone must be in format +92XXXXXXXXXX (e.g., +923001234567)')
       return false
     }
     if (!/^\d{5}-\d{7}-\d{1}$/.test(formData.cnic)) {
@@ -150,6 +156,33 @@ export default function KycPage() {
                         placeholder="Muhammad Ali"
                         className="w-full text-[13px] border border-border rounded-lg px-3 py-2.5 focus:outline-none focus:border-copper"
                       />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-medium text-text-muted block mb-1.5">
+                        Pakistani mobile number
+                        <span className="text-text-faint font-normal ml-1">(optional)</span>
+                      </label>
+                      <div className="flex border border-border rounded-lg overflow-hidden focus-within:border-copper focus-within:ring-1 focus-within:ring-copper transition-colors">
+                        <div className="bg-cream px-3 flex items-center border-r border-border flex-shrink-0">
+                          <span className="text-[12px] text-text-muted font-mono">+92</span>
+                        </div>
+                        <input
+                          type="tel"
+                          inputMode="numeric"
+                          value={formData.phone.replace(/^\+92/, '')}
+                          onChange={e => setFormData(p => ({
+                            ...p,
+                            phone: e.target.value ? `+92${e.target.value.replace(/\D/g, '').slice(0, 10)}` : '',
+                          }))}
+                          placeholder="3001234567"
+                          maxLength={10}
+                          className="flex-1 px-3 py-2.5 text-[13px] font-mono focus:outline-none bg-transparent"
+                        />
+                      </div>
+                      <p className="text-[10px] text-text-faint mt-1">
+                        Required to receive SMS alerts for bids and meetups.
+                      </p>
                     </div>
 
                     <div>
@@ -275,6 +308,7 @@ export default function KycPage() {
                   <div className="bg-cream rounded-xl p-4 space-y-2">
                     {[
                       { label: 'Full name', value: formData.fullName, mono: false },
+                      { label: 'Phone',     value: formData.phone || '—', mono: true  },
                       { label: 'CNIC',      value: formData.cnic,      mono: true  },
                       { label: 'DOB',       value: formatDob(formData.dateOfBirth), mono: false },
                     ].map(row => (

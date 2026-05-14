@@ -85,6 +85,7 @@ export interface AuthResponse {
   user_id: string
   role: 'BUYER' | 'SELLER' | 'ADMIN'
   kyc_tier: 'BASIC' | 'FULL'
+  profile_complete?: boolean
 }
 
 export interface ListingsResponse {

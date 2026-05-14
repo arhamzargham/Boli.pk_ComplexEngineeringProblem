@@ -73,15 +73,15 @@ export const api = {
   },
 
   auth: {
-    requestOtp: (phone: string) =>
-      apiFetch<{ message: string }>('/api/v1/auth/request-otp', {
+    requestOtp: (payload: { email: string }) =>
+      apiFetch<{ message: string; email: string }>('/api/v1/auth/request-otp', {
         method: 'POST',
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify(payload),
       }),
-    verifyOtp: (phone: string, otp: string) =>
+    verifyOtp: (payload: { email: string; otp_code: string }) =>
       apiFetch<AuthResponse>('/api/v1/auth/verify-otp', {
         method: 'POST',
-        body: JSON.stringify({ phone, otp }),
+        body: JSON.stringify(payload),
       }),
   },
 

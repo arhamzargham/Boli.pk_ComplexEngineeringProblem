@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ShieldCheck, AlertCircle } from 'lucide-react'
+import { Mail, ShieldCheck, AlertCircle, CheckCircle2 } from 'lucide-react'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import StatsBar from '@/components/layout/StatsBar'
@@ -12,28 +12,22 @@ import { saveAuth } from '@/lib/auth'
 
 export default function LoginPage() {
   const router = useRouter()
-  const [step, setStep]         = useState<1 | 2>(1)
-  const [phone, setPhone]       = useState('')
-  const [otpValues, setOtpValues] = useState<string[]>(Array(6).fill(''))
-  const [loading, setLoading]   = useState(false)
-  const [error, setError]       = useState<string | null>(null)
-  const otpRefs = useRef<(HTMLInputElement | null)[]>([])
-
-  // Auto-focus first OTP box when step 2 opens
-  useEffect(() => {
-    if (step === 2) otpRefs.current[0]?.focus()
-  }, [step])
-
-  const otp = otpValues.join('')
+  const [step, setStep]       = useState<'email' | 'otp'>('email')
+  const [email, setEmail]     = useState('')
+  const [otp, setOtp]         = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError]     = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
 
   async function handleRequestOtp() {
-    if (!phone.trim()) return
-    const fullPhone = `+92${phone.replace(/\D/g, '')}`
+    if (!email.trim()) return
     setError(null)
+    setSuccess(null)
     setLoading(true)
     try {
-      await api.auth.requestOtp(fullPhone)
-      setStep(2)
+      await api.auth.requestOtp({ email: email.trim() })
+      setSuccess(`OTP sent to ${email}. Check your inbox.`)
+      setStep('otp')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to send OTP')
     } finally {
@@ -43,49 +37,24 @@ export default function LoginPage() {
 
   async function handleVerifyOtp() {
     if (otp.length < 6) return
-    const fullPhone = `+92${phone.replace(/\D/g, '')}`
     setError(null)
     setLoading(true)
     try {
-      const response = await api.auth.verifyOtp(fullPhone, otp)
+      const response = await api.auth.verifyOtp({ email: email.trim(), otp_code: otp })
       saveAuth(response)
-      router.push('/')
+      // Redirect: incomplete profile → KYC, complete profile → home
+      if (!response.profile_complete) {
+        router.push('/kyc')
+      } else {
+        router.push('/')
+      }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Incorrect OTP')
-      // Clear boxes on error
-      setOtpValues(Array(6).fill(''))
-      otpRefs.current[0]?.focus()
+      setError(e instanceof Error ? e.message : 'Invalid OTP — please try again')
+      setOtp('')
     } finally {
       setLoading(false)
     }
   }
-
-  function handleOtpInput(index: number, value: string) {
-    const char = value.slice(-1)
-    if (char && !/\d/.test(char)) return
-    const next = [...otpValues]
-    next[index] = char
-    setOtpValues(next)
-    if (char && index < 5) otpRefs.current[index + 1]?.focus()
-  }
-
-  function handleOtpKeyDown(index: number, e: React.KeyboardEvent) {
-    if (e.key === 'Backspace' && !otpValues[index] && index > 0) {
-      otpRefs.current[index - 1]?.focus()
-    }
-  }
-
-  function handleOtpPaste(e: React.ClipboardEvent) {
-    e.preventDefault()
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
-    const next = Array(6).fill('')
-    pasted.split('').forEach((c, i) => { next[i] = c })
-    setOtpValues(next)
-    const focusIdx = Math.min(pasted.length, 5)
-    otpRefs.current[focusIdx]?.focus()
-  }
-
-  const maskedPhone = phone ? `+92 300 ···${phone.slice(-4)}` : ''
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -102,35 +71,36 @@ export default function LoginPage() {
 
           {/* Step indicator */}
           <div className="flex gap-1.5 mb-5">
-            <div className={`h-1 flex-1 rounded-sm ${step >= 1 ? 'bg-copper' : 'bg-border'}`} />
-            <div className={`h-1 flex-1 rounded-sm ${step >= 2 ? 'bg-copper' : 'bg-border'}`} />
+            <div className="h-1 flex-1 rounded-sm bg-copper" />
+            <div className={`h-1 flex-1 rounded-sm ${step === 'otp' ? 'bg-copper' : 'bg-border'}`} />
           </div>
 
-          {/* STEP 1 — phone */}
-          {step === 1 && (
+          {/* ── STEP 1 — Email ── */}
+          {step === 'email' && (
             <div>
               <p className="text-[10px] text-text-faint uppercase tracking-wider mb-1">
-                Step 1 of 2 — Mobile number
+                Step 1 of 2 — Email address
               </p>
+
               <label className="text-[11px] font-medium text-text-muted block mb-1.5 mt-3">
-                Mobile number
+                Email address
               </label>
               <div className="flex border border-border rounded-lg overflow-hidden focus-within:border-copper focus-within:ring-1 focus-within:ring-copper transition-colors">
                 <div className="bg-cream px-3 flex items-center border-r border-border flex-shrink-0">
-                  <span className="text-[12px] text-text-muted">🇵🇰 +92</span>
+                  <Mail size={13} className="text-text-faint" />
                 </div>
                 <input
-                  type="tel"
-                  inputMode="numeric"
-                  placeholder="300 0000003"
-                  value={phone}
-                  onChange={e => setPhone(e.target.value.replace(/\D/g, ''))}
+                  type="email"
+                  placeholder="you@email.com"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleRequestOtp()}
                   className="flex-1 px-3 py-2.5 text-[13px] focus:outline-none bg-transparent"
+                  autoComplete="email"
                 />
               </div>
               <p className="text-[10px] text-text-faint mt-1">
-                We will send a 6-digit OTP. Standard SMS rates apply.
+                We will email a 6-digit one-time code. No password needed.
               </p>
 
               {error && (
@@ -148,64 +118,52 @@ export default function LoginPage() {
                 onClick={handleRequestOtp}
                 className="mt-3"
               >
-                Send OTP
-              </Button>
-
-              <div className="flex items-center gap-2 my-3">
-                <div className="flex-1 border-t border-border" />
-                <span className="text-[10px] text-text-faint">or</span>
-                <div className="flex-1 border-t border-border" />
-              </div>
-
-              <Button variant="secondary" size="md" fullWidth>
-                Continue as guest · Browse only
+                Send OTP to Email
               </Button>
 
               {/* Trust note */}
               <div className="bg-cream rounded-lg p-2.5 mt-3 flex gap-2 items-start">
                 <ShieldCheck size={12} className="text-copper mt-0.5 flex-shrink-0" />
                 <p className="text-[10px] text-text-muted leading-relaxed">
-                  Your number is never sold or shared. CNIC required to bid or list.
-                  Penalty policy acknowledged at KYC step.
+                  Your email is never shared. CNIC required to bid or list.
+                  Panel members can register with their institutional email.
                 </p>
               </div>
             </div>
           )}
 
-          {/* STEP 2 — OTP */}
-          {step === 2 && (
+          {/* ── STEP 2 — OTP ── */}
+          {step === 'otp' && (
             <div>
               <p className="text-[10px] text-text-faint uppercase tracking-wider mb-1">
-                Step 2 of 2 — OTP verification
-              </p>
-              <h2 className="text-[13px] font-medium text-center mt-3">Enter the 6-digit code</h2>
-              <p className="text-[11px] text-text-faint text-center mt-1">
-                Sent to {maskedPhone} · Expires in 4:52
+                Step 2 of 2 — Email verification
               </p>
 
-              {/* OTP boxes */}
-              <div className="flex gap-2 justify-center mt-4" onPaste={handleOtpPaste}>
-                {otpValues.map((val, i) => (
-                  <input
-                    key={i}
-                    ref={el => { otpRefs.current[i] = el }}
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={1}
-                    value={val}
-                    onChange={e => handleOtpInput(i, e.target.value)}
-                    onKeyDown={e => handleOtpKeyDown(i, e)}
-                    className={[
-                      'w-[42px] h-[48px] text-center text-[18px] font-medium rounded-lg bg-cream',
-                      'focus:outline-none transition-colors',
-                      val ? 'border-2 border-copper' : 'border border-border',
-                      'focus:border-2 focus:border-copper',
-                    ].join(' ')}
-                  />
-                ))}
-              </div>
+              {success && (
+                <div className="flex items-start gap-1.5 mt-2 mb-3 bg-success/10 border border-success/20 rounded-lg px-3 py-2">
+                  <CheckCircle2 size={11} className="text-success mt-0.5 flex-shrink-0" />
+                  <span className="text-[11px] text-success">{success}</span>
+                </div>
+              )}
 
-              {/* Inline error — never alert() */}
+              <h2 className="text-[13px] font-medium text-center mt-1">Enter the 6-digit code</h2>
+              <p className="text-[11px] text-text-faint text-center mt-1 mb-4">
+                Sent to <span className="font-medium text-text-primary">{email}</span>
+              </p>
+
+              {/* Single OTP input — easier than 6 boxes for email flow */}
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="000000"
+                value={otp}
+                onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                onKeyDown={e => e.key === 'Enter' && handleVerifyOtp()}
+                maxLength={6}
+                className="w-full border border-border rounded-lg px-4 py-3 text-[20px] text-center font-mono tracking-[0.4em] focus:outline-none focus:border-copper focus:ring-1 focus:ring-copper transition-colors"
+                autoComplete="one-time-code"
+              />
+
               {error && (
                 <div className="flex items-center gap-1.5 justify-center mt-2">
                   <AlertCircle size={11} className="text-danger" />
@@ -230,16 +188,16 @@ export default function LoginPage() {
                   Didn&apos;t receive it?{' '}
                   <button
                     className="text-copper hover:underline"
-                    onClick={() => { setError(null); handleRequestOtp() }}
+                    onClick={() => { setError(null); setSuccess(null); handleRequestOtp() }}
                   >
                     Resend OTP
                   </button>
                 </p>
                 <button
                   className="text-[11px] text-copper hover:underline block w-full"
-                  onClick={() => { setStep(1); setError(null); setOtpValues(Array(6).fill('')) }}
+                  onClick={() => { setStep('email'); setOtp(''); setError(null); setSuccess(null) }}
                 >
-                  ← Change number
+                  ← Change email
                 </button>
               </div>
             </div>
