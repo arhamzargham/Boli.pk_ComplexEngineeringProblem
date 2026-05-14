@@ -176,25 +176,57 @@ func (h *Handler) VerifyOTP(c *gin.Context) {
 	// 6. OTP match, cleanup Redis
 	h.rdb.Del(ctx, verifyKey, attemptsKey)
 
-	// 2. Resolve user by phone (CEP hardcoded map)
-	pu, ok := phoneUsers[req.Phone]
-	if !ok {
-		apiErr(c, http.StatusUnauthorized, "USER_NOT_FOUND", "no account associated with this phone number")
-		return
+	// 7. Resolve user — DB first, then hardcoded map, then implicit signup
+	var userID, role, kycTier string
+
+	dbErr := h.db.QueryRowContext(ctx,
+		`SELECT user_id::text, role::text, kyc_tier::text FROM users WHERE phone = $1`,
+		req.Phone,
+	).Scan(&userID, &role, &kycTier)
+
+	switch {
+	case dbErr == nil:
+		// Found in DB — normal login path
+	case dbErr == sql.ErrNoRows:
+		// Not in DB — check hardcoded map (legacy CEP demo phones, e.g. +92300000003)
+		if pu, ok := phoneUsers[req.Phone]; ok {
+			userID, role, kycTier = pu.UserID, pu.Role, pu.KycTier
+		} else {
+			// Completely new phone — create account (implicit signup)
+			userID = newUUID()
+			role, kycTier = "BUYER", "BASIC"
+			_, insertErr := h.db.ExecContext(ctx,
+				`INSERT INTO users (user_id, phone, role, kyc_tier, account_status, trust_score)
+				 VALUES ($1, $2, 'BUYER', 'BASIC', 'PARTIAL_ACTIVE', 50)`,
+				userID, req.Phone,
+			)
+			if insertErr != nil {
+				apiErr(c, http.StatusInternalServerError, "DB_ERROR", "could not create account")
+				return
+			}
+		}
+	default:
+		// DB error (e.g. phone column not yet migrated) — fall back to hardcoded map
+		if pu, ok := phoneUsers[req.Phone]; ok {
+			userID, role, kycTier = pu.UserID, pu.Role, pu.KycTier
+		} else {
+			apiErr(c, http.StatusInternalServerError, "DB_ERROR", "could not resolve user")
+			return
+		}
 	}
 
-	// 3. Build and sign JWT
+	// 8. Build and sign JWT
 	sessionID := newUUID()
 	now := time.Now()
 	accessExp := now.Add(15 * time.Minute)
 	refreshExp := now.Add(7 * 24 * time.Hour)
 
 	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, claims{
-		Role:      pu.Role,
-		KycTier:   pu.KycTier,
+		Role:      role,
+		KycTier:   kycTier,
 		SessionID: sessionID,
 		RegisteredClaims: jwt.RegisteredClaims{
-			Subject:   pu.UserID,
+			Subject:   userID,
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(accessExp),
 		},
@@ -226,7 +258,7 @@ func (h *Handler) VerifyOTP(c *gin.Context) {
 		     is_active, created_at, device_hash)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,TRUE,NOW(),$9)
 		ON CONFLICT (session_id) DO NOTHING`,
-		sessionID, pu.UserID, fp, ip,
+		sessionID, userID, fp, ip,
 		hashStr(signed), refreshHash,
 		accessExp, refreshExp, deviceHash,
 	)
@@ -236,7 +268,7 @@ func (h *Handler) VerifyOTP(c *gin.Context) {
 	}
 
 	// Calculate sybil risk score
-	riskScore, _ := h.calcSybilRiskScore(ctx, pu.UserID, req.Phone, deviceHash, ip)
+	riskScore, _ := h.calcSybilRiskScore(ctx, userID, req.Phone, deviceHash, ip)
 	if riskScore > 0.85 {
 		_, _ = h.db.ExecContext(ctx, `
 			INSERT INTO risk_audit (entity_type, entity_id, risk_type, score, reason)
@@ -245,7 +277,7 @@ func (h *Handler) VerifyOTP(c *gin.Context) {
 	}
 
 	// 7. Register sessionId in Redis active_sessions:{userId} (NR-05)
-	h.rdb.SAdd(ctx, "active_sessions:"+pu.UserID, sessionID)
+	h.rdb.SAdd(ctx, "active_sessions:"+userID, sessionID)
 
 	// Return access token in body; refresh token as HTTP-only cookie
 	c.SetCookie("refresh_token", refreshToken, int(7*24*time.Hour/time.Second),
@@ -255,9 +287,9 @@ func (h *Handler) VerifyOTP(c *gin.Context) {
 		"access_token": signed,
 		"token_type":   "Bearer",
 		"expires_in":   900,
-		"user_id":      pu.UserID,
-		"role":         pu.Role,
-		"kyc_tier":     pu.KycTier,
+		"user_id":      userID,
+		"role":         role,
+		"kyc_tier":     kycTier,
 	})
 }
 
