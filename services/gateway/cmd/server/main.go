@@ -78,6 +78,10 @@ func main() {
 	txG.Use(authMW.RequireAuth())
 	txG.GET("/:id", txH.GetTransaction)
 	txG.POST("/:id/disputes", disputeH.CreateDispute)
+	txG.POST("/:id/meetup/confirm", txH.ConfirmMeetup)
+	txG.POST("/:id/qr/generate", txH.GenerateSettlementQR)
+	txG.POST("/:id/settle", txH.VerifyAndSettle)
+	txG.GET("/:id/ledger-chain", txH.GetLedgerChain)
 
 	// ── Disputes (protected) ──────────────────────────────────
 	disputeG := v1.Group("/disputes")

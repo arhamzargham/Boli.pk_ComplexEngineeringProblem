@@ -70,3 +70,70 @@ CREATE TABLE IF NOT EXISTS risk_audit (
     reason TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- =============================================================
+-- WORKSTREAM GAMMA: FINAL POLISH & NON-REPUDIATION
+-- =============================================================
+
+ALTER TABLE ledger_entries ADD COLUMN IF NOT EXISTS hash VARCHAR(64);
+ALTER TABLE ledger_entries ADD COLUMN IF NOT EXISTS prev_hash VARCHAR(64);
+
+-- The constraint shouldn't be enforced on existing seed data that might not have a hash, but since it's a new schema we'll just add it.
+ALTER TABLE ledger_entries ADD CONSTRAINT fk_prev_hash FOREIGN KEY (prev_hash) REFERENCES ledger_entries(hash) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED;
+ALTER TABLE ledger_entries ADD CONSTRAINT uk_hash UNIQUE (hash);
+
+CREATE OR REPLACE FUNCTION fn_ledger_hash_chain()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+DECLARE
+    prev_hash_value VARCHAR(64);
+    new_hash VARCHAR(64);
+BEGIN
+    SELECT hash INTO prev_hash_value
+    FROM ledger_entries
+    WHERE transaction_id = NEW.transaction_id
+    ORDER BY created_at DESC
+    LIMIT 1;
+
+    new_hash = encode(digest(
+        NEW.transaction_id::text || '|' ||
+        NEW.event_type::text || '|' ||
+        COALESCE(NEW.memo, '') || '|' ||
+        NEW.amount_paisa::text || '|' ||
+        NEW.created_at::text || '|' ||
+        COALESCE(prev_hash_value, '0000000000000000000000000000000000000000000000000000000000000000'),
+        'sha256'
+    ), 'hex');
+
+    NEW.hash = new_hash;
+    NEW.prev_hash = prev_hash_value;
+
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_ledger_hash_chain ON ledger_entries;
+CREATE TRIGGER trg_ledger_hash_chain
+BEFORE INSERT ON ledger_entries
+FOR EACH ROW EXECUTE FUNCTION fn_ledger_hash_chain();
+
+CREATE OR REPLACE FUNCTION fn_money_state_change()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+    IF OLD.money_state != NEW.money_state THEN
+        INSERT INTO ledger_entries (
+            transaction_id, entry_type, purpose, memo, amount_paisa, previous_hash_sha256, current_hash_sha256
+        ) VALUES (
+            NEW.transaction_id, 'CREDIT', 'ESCROW_LOCK', 
+            'STATE_CHANGE: ' || OLD.money_state || ' -> ' || NEW.money_state,
+            1, '0', '0'
+        );
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_money_state_change ON transactions;
+CREATE TRIGGER trg_money_state_change
+AFTER UPDATE ON transactions
+FOR EACH ROW EXECUTE FUNCTION fn_money_state_change();
+
