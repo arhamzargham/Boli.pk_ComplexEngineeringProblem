@@ -1,0 +1,64 @@
+name: Test & Build
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: boli
+          POSTGRES_PASSWORD: boli
+          POSTGRES_DB: boli
+      redis:
+        image: redis:7-alpine
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v4
+        with:
+          go-version: '1.22'
+      - run: cd services/gateway && go test ./...
+      - run: cd services/gateway && go build -o ./bin/server ./cmd/server
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - run: cd services/frontend && npm ci
+      - run: cd services/frontend && npm run type-check
+      - run: cd services/frontend && npm run build
+
+  deploy-railway:
+    needs: [backend-test, frontend-build]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: railwayapp/actions@v1
+        with:
+          railway-token: ${{ secrets.RAILWAY_TOKEN }}
+          environment: production
+          service: gateway
+
+  deploy-vercel:
+    needs: frontend-build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: services/frontend
+          vercel-args: '--prod'

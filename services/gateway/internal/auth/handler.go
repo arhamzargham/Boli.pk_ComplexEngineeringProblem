@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
@@ -8,10 +9,13 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+	mathrand "math/rand"
+	"regexp"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/redis/go-redis/v9"
+	"boli.pk/gateway/internal/sms"
 )
 
 // phoneUser maps a CEP demo phone number to a seeded user.
@@ -25,9 +29,9 @@ type phoneUser struct {
 // phoneUsers is the CEP phone→user lookup table.
 // Production: this lives in PostgreSQL, looked up by phone number.
 var phoneUsers = map[string]phoneUser{
-	"+92300000001": {"a0000000-0000-4000-8000-000000000001", "ADMIN",  "FULL"},
-	"+92300000002": {"a0000000-0000-4000-8000-000000000002", "ADMIN",  "FULL"},
-	"+92300000003": {"b0000000-0000-4000-8000-000000000001", "BUYER",  "FULL"},
+	"+92300000001": {"a0000000-0000-4000-8000-000000000001", "ADMIN", "FULL"},
+	"+92300000002": {"a0000000-0000-4000-8000-000000000002", "ADMIN", "FULL"},
+	"+92300000003": {"b0000000-0000-4000-8000-000000000001", "BUYER", "FULL"},
 	"+92300000004": {"c0000000-0000-4000-8000-000000000001", "SELLER", "FULL"},
 }
 
@@ -41,13 +45,14 @@ type claims struct {
 
 // Handler holds dependencies for auth endpoints.
 type Handler struct {
-	db        *sql.DB
-	rdb       *redis.Client
-	jwtSecret []byte
+	db          *sql.DB
+	rdb         *redis.Client
+	jwtSecret   []byte
+	smsProvider sms.Provider
 }
 
-func NewHandler(db *sql.DB, rdb *redis.Client, jwtSecret string) *Handler {
-	return &Handler{db: db, rdb: rdb, jwtSecret: []byte(jwtSecret)}
+func NewHandler(db *sql.DB, rdb *redis.Client, jwtSecret string, smsProvider sms.Provider) *Handler {
+	return &Handler{db: db, rdb: rdb, jwtSecret: []byte(jwtSecret), smsProvider: smsProvider}
 }
 
 // ─── POST /api/v1/auth/request-otp ──────────────────────────────────────────
@@ -56,8 +61,8 @@ type otpReq struct {
 	Phone string `json:"phone" binding:"required"`
 }
 
-// RequestOTP stores the CEP hardcoded OTP "123456" in Redis with a 5-minute TTL.
-// Production: generate a real random 6-digit OTP and send via SMS (Twilio).
+// RequestOTP generates a random 6-digit OTP, hashes it, stores in Redis,
+// enforces rate limiting, and sends via SMS provider.
 func (h *Handler) RequestOTP(c *gin.Context) {
 	var req otpReq
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -65,12 +70,50 @@ func (h *Handler) RequestOTP(c *gin.Context) {
 		return
 	}
 
-	if err := h.rdb.Set(c.Request.Context(), "otp:"+req.Phone, "123456", 5*time.Minute).Err(); err != nil {
+	// 1. Validate phone format (Pakistani: +923\d{9})
+	match, _ := regexp.MatchString(`^\+923\d{9}$`, req.Phone)
+	if !match {
+		apiErr(c, http.StatusBadRequest, "INVALID_PHONE", "invalid Pakistani phone number format")
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	// 2. Check rate limit
+	reqKey := "otp:request:" + req.Phone
+	count, _ := h.rdb.Get(ctx, reqKey).Int()
+	if count >= 3 {
+		apiErr(c, http.StatusTooManyRequests, "RATE_LIMIT_EXCEEDED", "too many OTP requests")
+		return
+	}
+
+	// 3. Generate OTP
+	otpVal := mathrand.Intn(900000) + 100000
+	otpStr := fmt.Sprintf("%06d", otpVal)
+
+	// 4. Hash OTP
+	hashVal := hashStr(otpStr + string(h.jwtSecret))
+
+	// 5. Store in Redis
+	verifyKey := "otp:verify:" + req.Phone
+	pipe := h.rdb.Pipeline()
+	pipe.Set(ctx, verifyKey, hashVal, 5*time.Minute)
+	pipe.Incr(ctx, reqKey)
+	pipe.Expire(ctx, reqKey, 1*time.Hour)
+	if _, err := pipe.Exec(ctx); err != nil {
 		apiErr(c, http.StatusInternalServerError, "REDIS_ERROR", "could not store OTP")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "OTP sent"})
+	// 6. Send SMS
+	message := fmt.Sprintf("Boli.pk OTP: %s. Valid 5 minutes.", otpStr)
+	if err := h.smsProvider.Send(ctx, req.Phone, message); err != nil {
+		h.rdb.Del(ctx, verifyKey) // Rollback
+		apiErr(c, http.StatusServiceUnavailable, "SMS_ERROR", "could not send SMS")
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"phone": req.Phone, "message": "OTP sent"})
 }
 
 // ─── POST /api/v1/auth/verify-otp ───────────────────────────────────────────
@@ -91,22 +134,47 @@ func (h *Handler) VerifyOTP(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	// 1. Validate OTP from Redis
-	stored, err := h.rdb.Get(ctx, "otp:"+req.Phone).Result()
+	// 1. Validate phone + OTP format
+	matchPhone, _ := regexp.MatchString(`^\+923\d{9}$`, req.Phone)
+	matchOTP, _ := regexp.MatchString(`^\d{6}$`, req.OTP)
+	if !matchPhone || !matchOTP {
+		apiErr(c, http.StatusBadRequest, "INVALID_FORMAT", "invalid phone or OTP format")
+		return
+	}
+
+	// 2. Check rate limit for verification attempts
+	attemptsKey := "otp:attempts:" + req.Phone
+	attempts, _ := h.rdb.Incr(ctx, attemptsKey).Result()
+	if attempts == 1 {
+		h.rdb.Expire(ctx, attemptsKey, 5*time.Minute)
+	}
+	if attempts >= 5 {
+		h.rdb.Del(ctx, "otp:verify:"+req.Phone) // Invalidate OTP
+		apiErr(c, http.StatusForbidden, "TOO_MANY_ATTEMPTS", "too many failed attempts")
+		return
+	}
+
+	// 3. Get stored hash
+	verifyKey := "otp:verify:" + req.Phone
+	storedHash, err := h.rdb.Get(ctx, verifyKey).Result()
 	if err == redis.Nil {
-		apiErr(c, http.StatusUnauthorized, "OTP_EXPIRED", "OTP expired or not requested")
+		apiErr(c, http.StatusBadRequest, "OTP_EXPIRED", "OTP expired")
 		return
 	}
 	if err != nil {
 		apiErr(c, http.StatusInternalServerError, "REDIS_ERROR", "could not retrieve OTP")
 		return
 	}
-	if stored != req.OTP {
+
+	// 4 & 5. Compute and Compare hash
+	inputHash := hashStr(req.OTP + string(h.jwtSecret))
+	if storedHash != inputHash {
 		apiErr(c, http.StatusUnauthorized, "OTP_INVALID", "incorrect OTP")
 		return
 	}
-	// Delete so it can't be replayed
-	h.rdb.Del(ctx, "otp:"+req.Phone)
+
+	// 6. OTP match, cleanup Redis
+	h.rdb.Del(ctx, verifyKey, attemptsKey)
 
 	// 2. Resolve user by phone (CEP hardcoded map)
 	pu, ok := phoneUsers[req.Phone]
@@ -202,9 +270,9 @@ func (h *Handler) calcSybilRiskScore(ctx context.Context, userID, phone, deviceH
 		SELECT COUNT(DISTINCT user_id) 
 		FROM user_sessions 
 		WHERE device_hash = $1 AND user_id != $2::uuid 
-		  AND created_at > NOW() - INTERVAL '30 DAYS'`, 
+		  AND created_at > NOW() - INTERVAL '30 DAYS'`,
 		deviceHash, userID).Scan(&otherAccounts)
-	
+
 	if err == nil {
 		if otherAccounts > 3 {
 			scores = append(scores, 0.9)
@@ -254,11 +322,11 @@ func (h *Handler) calcSybilRiskScore(ctx context.Context, userID, phone, deviceH
 	// But to follow the algorithm:
 	// We don't have phone in users table according to init.sql!
 	// So we'll skip the DB query for phone and just append 0.1 (safe) or skip it.
-	
+
 	if len(scores) == 0 {
 		return 0.0, nil
 	}
-	
+
 	var sum float64
 	for _, s := range scores {
 		sum += s

@@ -15,11 +15,17 @@ import (
 	"boli.pk/gateway/internal/admin"
 	"boli.pk/gateway/internal/auction"
 	"boli.pk/gateway/internal/auth"
+	"boli.pk/gateway/internal/handler"
 	"boli.pk/gateway/internal/dispute"
 	"boli.pk/gateway/internal/listing"
 	"boli.pk/gateway/internal/middleware"
 	"boli.pk/gateway/internal/transaction"
 	"boli.pk/gateway/internal/wallet"
+	"boli.pk/gateway/internal/sms"
+	zlog "boli.pk/gateway/internal/log"
+	"boli.pk/gateway/internal/metrics"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -31,7 +37,7 @@ func main() {
 	rdb := connectRedis(redisAddr)
 
 	// ── Handlers ──────────────────────────────────────────────
-	authH    := auth.NewHandler(db, rdb, jwtSecret)
+	authH    := auth.NewHandler(db, rdb, jwtSecret, sms.NewProvider())
 	listingH := listing.NewHandler(db)
 	auctionH := auction.NewHandler(db)
 	walletH  := wallet.NewHandler(db)
@@ -42,9 +48,14 @@ func main() {
 
 	// ── Router ────────────────────────────────────────────────
 	r := gin.New()
-	r.Use(gin.Logger(), gin.Recovery())
+	zlog.Init()
+	r.Use(zlog.Middleware(), metrics.Middleware(), gin.Recovery())
 
-	r.GET("/health", healthHandler(db, rdb))
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
+
+	r.GET("/health", handler.Health)
+	r.GET("/readiness", handler.Readiness(db, rdb))
+	r.GET("/liveness", handler.Liveness)
 
 	v1 := r.Group("/api/v1")
 
@@ -94,9 +105,9 @@ func main() {
 	adminG.POST("/wallets/fund", adminH.FundWallet)
 	adminG.GET("/risk-flags", adminH.GetRiskFlags)
 
-	log.Println("boli.pk gateway listening on :8080")
+	zlog.Logger.Info("boli.pk gateway listening on :8080")
 	if err := r.Run(":8080"); err != nil {
-		log.Fatalf("server exited: %v", err)
+		zlog.Logger.Fatal("server exited", zap.Error(err))
 	}
 }
 
@@ -105,7 +116,7 @@ func main() {
 func connectPostgres(dsn string) *sql.DB {
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
-		log.Fatalf("postgres: open failed: %v", err)
+		log.Fatalf("postgres: open failed: %v", err) // keeping standard log here since zlog is not initialized yet, or we can use it.
 	}
 	db.SetMaxOpenConns(25)
 	db.SetMaxIdleConns(5)
@@ -136,27 +147,7 @@ func connectRedis(addr string) *redis.Client {
 	return rdb
 }
 
-func healthHandler(db *sql.DB, rdb *redis.Client) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		ctx := c.Request.Context()
 
-		dbStatus := "ok"
-		if err := db.PingContext(ctx); err != nil {
-			dbStatus = "error"
-		}
-		redisStatus := "ok"
-		if err := rdb.Ping(ctx).Err(); err != nil {
-			redisStatus = "error"
-		}
-		overall := "ok"
-		code := http.StatusOK
-		if dbStatus != "ok" || redisStatus != "ok" {
-			overall = "degraded"
-			code = http.StatusServiceUnavailable
-		}
-		c.JSON(code, gin.H{"status": overall, "db": dbStatus, "redis": redisStatus})
-	}
-}
 
 func mustEnv(key string) string {
 	v := os.Getenv(key)

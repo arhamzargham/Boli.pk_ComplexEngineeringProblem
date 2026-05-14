@@ -1,0 +1,15 @@
+- `[x]` ALPHA: Create infrastructure/postgres/phase4.sql with dispute trigger
+- `[x]` ALPHA: Implement GetTransaction in services/gateway/internal/transaction/handler.go
+- `[x]` ALPHA: Create services/gateway/internal/dispute/handler.go
+- `[x]` ALPHA: Register routes in main.go
+- `[x]` ALPHA: Test endpoints and commit
+- `[x]` BETA: Shill bidding risk score
+- `[x]` BETA: Sybil detection risk score
+- `[x]` BETA: Metadata outlier risk score
+- `[x]` BETA: Admin risk-flags endpoint
+- `[x]` BETA: Test and commit
+- `[x]` GAMMA: ConfirmMeetup handler
+- `[x]` GAMMA: GenerateSettlementQR handler
+- `[x]` GAMMA: VerifyAndSettle handler
+- `[x]` GAMMA: Ledger hash chain triggers
+- `[x]` GAMMA: Test and commit
