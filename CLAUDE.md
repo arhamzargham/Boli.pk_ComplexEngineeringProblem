@@ -32,7 +32,7 @@ All technology choices are final. Do not suggest alternatives.
 
 | Layer | Technology | Version | Reason |
 |---|---|---|---|
-| Bidding Engine / API Gateway | Go (Golang) | 1.22+ | Native goroutine concurrency for C10K WebSocket connections without thread overhead |
+| Bidding Engine / API Gateway | Go (Golang) | 1.23+ | Native goroutine concurrency for C10K WebSocket connections without thread overhead |
 | WebSocket Server | Centrifugo | 5.x | Battle-tested WebSocket server, Redis pub/sub clustering, built-in presence/history |
 | Bid Cache / EDA Bus | Redis | 7.x with Redis Streams | Sub-15ms P99 latency, Streams provide persistent ordered log for EDA |
 | Financial Ledger | PostgreSQL | 16.x | ACID compliance, row-level locking, native JSONB, append-only enforcement via triggers |
@@ -40,6 +40,10 @@ All technology choices are final. Do not suggest alternatives.
 | Frontend | React + Next.js | 18.x / 14+ | SSR for SEO, PWA for camera/geolocation access, component-driven state management |
 | Containerisation | Docker + Docker Compose | Latest stable | Single-command offline CEP deployment, all mocks bundled |
 | CI/CD | GitHub Actions | — | Automated testing, SAST, SCA on every commit |
+| Structured Logging | go.uber.org/zap | 1.28+ | JSON structured output, request-ID tracing |
+| Metrics | Prometheus (client_golang) | 1.23+ | HTTP latency histograms, request counters, active connection gauges |
+| SMS | Twilio (twilio-go) | 1.30+ | Real OTP delivery; MockProvider for local/CEP |
+| QR Codes | skip2/go-qrcode | — | Settlement QR generation |
 
 **Single-Command CEP Deployment:**
 ```bash
@@ -1059,20 +1063,63 @@ If commit fails (DB error):
 
 ---
 
-## 9. AUTHENTICATION ARCHITECTURE (Gap 5 — RESOLVED)
+## 9. AUTHENTICATION ARCHITECTURE
+
+**Implemented State (Phase 5 — LIVE):**
 
 ```
 POST /api/v1/auth/request-otp
-  Body: {phone: string}
-  → Generates 6-digit OTP, stores hash in Redis with 5-minute TTL
-  → Sends OTP via SMS (mocked for CEP)
+  Body: {phone: string}  — Pakistani format: +923\d{9}
+  1. Validates phone regex
+  2. Checks Redis otp:request:{phone} — 429 if >= 3 requests/hour
+  3. Generates crypto-random 6-digit OTP (math/rand)
+  4. Hashes OTP: SHA-256(otp + JWT_SECRET) — never stored in plaintext
+  5. Stores hash in Redis otp:verify:{phone} TTL=5min
+  6. Increments otp:request:{phone} INCR, EXPIRE 1h
+  7. Sends via SMSProvider (Twilio in prod, MockProvider locally)
+     MockProvider prints: [MOCK SMS] To: {phone} | Message: Boli.pk OTP: {otp}. Valid 5 minutes.
+  8. On SMS failure: DEL otp:verify:{phone} (rollback), return 503
 
 POST /api/v1/auth/verify-otp
   Body: {phone: string, otp: string}
-  → Validates OTP hash in Redis
-  → Creates User (accountStatus = PARTIAL_ACTIVE) if new
-  → Creates UserSession
-  → Returns: {accessToken: JWT, refreshToken: httponly-cookie}
+  1. Validates phone + OTP format (regex)
+  2. INCR otp:attempts:{phone} — 403 if >= 5 (OTP invalidated)
+  3. GET otp:verify:{phone} — 400 if not found (expired)
+  4. Computes SHA-256(input_otp + JWT_SECRET), compares with stored hash
+  5. On mismatch: 401 Incorrect OTP
+  6. On match: DEL otp:verify, DEL otp:attempts
+  7. Resolves user via phoneUsers map (CEP hardcoded; prod: PostgreSQL lookup)
+  8. Creates JWT (sub=userId, role, kycTier, sessionId, exp=15min)
+  9. Creates refresh token (opaque UUID pair, stored as hash in UserSession)
+  10. Persists UserSession in PostgreSQL
+  11. Computes sybil_risk_score from device fingerprint + IP
+  12. Returns: {token: JWT, user_id, kyc_tier, role}
+
+Error Responses:
+  400 INVALID_PHONE / INVALID_FORMAT / OTP_EXPIRED
+  401 OTP_INVALID
+  403 TOO_MANY_ATTEMPTS
+  429 RATE_LIMIT_EXCEEDED
+  503 SMS_ERROR
+  500 REDIS_ERROR / TOKEN_ERROR
+
+SMS Provider (services/gateway/internal/sms/):
+  provider.go  — SMSProvider interface: Send(ctx, phone, message) error
+  twilio.go    — TwilioProvider: uses TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER
+  mock.go      — MockProvider: prints to stdout (SMS_PROVIDER=mock)
+  factory.go   — NewProvider(): reads SMS_PROVIDER env var
+
+Environment variables:
+  SMS_PROVIDER=mock|twilio
+  TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER
+  JWT_SECRET (used as OTP salt — never log this)
+
+CEP Demo Phones (hardcoded phoneUsers map):
+  +92300000001 → ADMIN  (user a0000000-...)
+  +92300000002 → ADMIN  (user a0000000-...)
+  +92300000003 → BUYER  (user b0000000-...)
+  +92300000004 → SELLER (user c0000000-...)
+  Any OTHER phone: request-otp works, verify-otp returns USER_NOT_FOUND
 
 POST /api/v1/auth/refresh
   → Reads refresh token from HTTP-only cookie
@@ -1214,29 +1261,30 @@ INVARIANT-10: 5-year data retention
 boli-pk/
 ├── CLAUDE.md                    ← THIS FILE
 ├── docker-compose.yml           ← Single-command CEP deployment
-├── docker-compose.test.yml      ← Test environment
+├── .github/
+│   └── workflows/
+│       └── test.yml             ← CI: test + build on push; deploy to Railway+Vercel on main
 │
 ├── services/
-│   ├── gateway/                 ← Go — API gateway + WebSocket bidding engine
+│   ├── gateway/                 ← Go 1.23 — API gateway + bidding engine
+│   │   ├── Dockerfile           ← golang:1.23-alpine builder → alpine:3.19 runner
+│   │   ├── go.mod               ← module boli.pk/gateway
 │   │   ├── cmd/
-│   │   │   ├── server/main.go
-│   │   │   └── bootstrap/main.go  ← Admin bootstrap CLI
-│   │   ├── internal/
-│   │   │   ├── auth/            ← JWT, session management
-│   │   │   ├── auction/         ← Auction state machine, bid processing
-│   │   │   ├── escrow/          ← Escrow state machine, 2PC settlement
-│   │   │   ├── wallet/          ← Wallet operations, zero-sum enforcement
-│   │   │   ├── listing/         ← Listing CRUD, vetting trigger
-│   │   │   ├── meetup/          ← Meetup coordination, IMEI scan
-│   │   │   ├── notification/    ← Notification dispatch
-│   │   │   ├── admin/           ← Admin portal, Maker-Checker
-│   │   │   ├── middleware/      ← Auth, rate limiting, shill detection
-│   │   │   └── websocket/       ← Centrifugo integration
-│   │   ├── pkg/
-│   │   │   ├── ledger/          ← LedgerEntry creation, hash chaining
-│   │   │   ├── settlement/      ← Settlement math, zero-sum validator
-│   │   │   └── statemachine/    ← Money state machine enforcer
-│   │   └── migrations/          ← PostgreSQL migrations (ordered)
+│   │   │   └── server/main.go   ← Gin router, all routes wired, health/readiness/liveness
+│   │   └── internal/
+│   │       ├── auth/            ← JWT, OTP pipeline (PHASE 5: rate-limited, hashed, SMS)
+│   │       ├── auction/         ← PlaceBid with shill_risk_score (PHASE 4 BETA)
+│   │       ├── transaction/     ← GetTransaction, ConfirmMeetup, GenerateSettlementQR,
+│   │       │                       VerifyAndSettle, GetLedgerChain (PHASE 4 GAMMA)
+│   │       ├── dispute/         ← CreateDispute, GetDispute (PHASE 4 ALPHA)
+│   │       ├── listing/         ← List, Get, calcMetadataOutlierScore (PHASE 4 BETA)
+│   │       ├── wallet/          ← Get wallet
+│   │       ├── admin/           ← FundWallet, GetRiskFlags (PHASE 4 BETA)
+│   │       ├── middleware/       ← RequireAuth (JWT validation + Redis session check), RequireRole
+│   │       ├── handler/         ← health.go: Health, Readiness, Liveness (PHASE 5 ZETA)
+│   │       ├── log/             ← logger.go: Zap JSON logger + HTTP middleware (PHASE 5 EPSILON)
+│   │       ├── metrics/         ← metrics.go, middleware.go: Prometheus instrumentation (PHASE 5)
+│   │       └── sms/             ← provider.go, twilio.go, mock.go, factory.go (PHASE 5 DELTA)
 │   │
 │   ├── ai-vetting/              ← Python FastAPI — AI pipeline
 │   │   ├── main.py
@@ -1248,41 +1296,25 @@ boli-pk/
 │   │   │   ├── check4_image.py
 │   │   │   ├── check5_condition.py
 │   │   │   └── check6_price.py
-│   │   ├── pipeline.py          ← Orchestrates all 6 checks
-│   │   └── mocks/               ← Mock DIRBS, TAC, FBR services
+│   │   ├── pipeline.py
+│   │   └── mocks/
 │   │
-│   └── frontend/                ← React + Next.js PWA
-│       ├── src/
-│       │   ├── app/             ← Next.js App Router
-│       │   ├── components/
-│       │   │   ├── auction/     ← Live auction room, bid input
-│       │   │   ├── listing/     ← Listing creation, AI status
-│       │   │   ├── meetup/      ← IMEI scanner, QR scanner, meetup chat
-│       │   │   ├── wallet/      ← Wallet dashboard, top-up
-│       │   │   └── admin/       ← Admin portal components
-│       │   ├── hooks/
-│       │   │   ├── useWebSocket.ts
-│       │   │   ├── useAuction.ts
-│       │   │   └── useWallet.ts
-│       │   └── lib/
-│       │       ├── api.ts       ← API client with idempotency key injection
-│       │       └── imei/        ← Client-side OCR, barcode decode
-│       └── public/
+│   └── frontend/                ← Next.js 14 (TypeScript strict) + Tailwind + Zustand
+│       ├── next.config.mjs      ← output: standalone (Docker-ready)
+│       └── src/
+│           └── app/             ← 13+ routes implemented
 │
 ├── infrastructure/
 │   ├── postgres/
-│   │   ├── init.sql             ← Schema, triggers, constraints, RLS policies
-│   │   └── seed.sql             ← Test data for CEP demo
-│   ├── redis/
-│   │   └── redis.conf
-│   └── nginx/
-│       └── nginx.conf           ← Reverse proxy, TLS termination
-│
-└── tests/
-    ├── unit/                    ← Go test files alongside source
-    ├── integration/             ← Multi-service integration tests
-    ├── load/                    ← k6 load test scripts (C10K validation)
-    └── e2e/                     ← Playwright E2E (CEP demo scenarios)
+│   │   ├── init.sql             ← Base schema (32 tables, 12 triggers)
+│   │   ├── seed_phase3.sql      ← Demo data
+│   │   ├── phase4.sql           ← ALPHA+BETA+GAMMA additions (disputes, risk_audit, ledger hash chain)
+│   │   ├── phase5_delta.sql     ← user_sessions OTP columns
+│   │   ├── phase5_epsilon.sql   ← audit_log table + PostgreSQL slow query logging
+│   │   └── db/migrations/
+│   │       └── 00005_phase5_indexes.sql  ← Performance indexes (goose-compatible)
+│   └── redis/
+│       └── redis.conf
 ```
 
 ---
@@ -1306,7 +1338,113 @@ These items have architectural decisions made but are NOT implemented for CEP:
 
 ---
 
-## 15. KNOWN CEP DEMO SCENARIOS
+---
+
+## 17. CURRENT IMPLEMENTATION STATUS (as of May 14, 2026)
+
+This section is the authoritative record of what is ACTUALLY BUILT vs what is ARCHITECTURALLY DESIGNED. Always check this section before assuming a feature exists.
+
+### Backend Gateway (Go) — DONE
+
+| Handler/Package | Status | Notes |
+|---|---|---|
+| `auth/handler.go` | ✅ Live | Real OTP pipeline: rate-limited (3/hr), hashed SHA-256, Twilio SMS |
+| `sms/` package | ✅ Live | TwilioProvider + MockProvider + factory (SMS_PROVIDER env) |
+| `auction/handler.go` | ✅ Live | PlaceBid + shill_risk_score calculation + risk_audit logging |
+| `listing/handler.go` | ✅ Live | List, Get, calcMetadataOutlierScore |
+| `transaction/handler.go` | ✅ Live | GetTransaction, ConfirmMeetup, GenerateSettlementQR, VerifyAndSettle, GetLedgerChain |
+| `dispute/handler.go` | ✅ Live | CreateDispute, GetDispute |
+| `wallet/handler.go` | ✅ Live | Get wallet |
+| `admin/handler.go` | ✅ Live | FundWallet |
+| `admin/risk.go` | ✅ Live | GetRiskFlags |
+| `handler/health.go` | ✅ Live | `/health` (200 always), `/readiness` (DB+Redis ping), `/liveness` (heartbeat) |
+| `log/logger.go` | ✅ Live | Zap JSON structured logging + X-Request-ID middleware |
+| `metrics/` | ✅ Live | Prometheus `/metrics` endpoint: latency histogram, request counter, active connections |
+| `middleware/auth.go` | ✅ Live | RequireAuth (JWT verify + Redis session check), RequireRole |
+
+### Database Schema — DONE
+
+| Migration | Status | Key Additions |
+|---|---|---|
+| `init.sql` | ✅ Applied | Full 32-table schema, 12 triggers, wallet invariants |
+| `seed_phase3.sql` | ✅ Applied | Demo users, wallets, listings, auctions, bids |
+| `phase4.sql` | ✅ Applied | transactions columns, disputes trigger, risk_audit, ledger hash chain |
+| `phase5_delta.sql` | ✅ Applied | user_sessions: otp_hash, otp_attempts, otp_last_request_at, otp_verified_at |
+| `phase5_epsilon.sql` | ✅ Applied | audit_log table, PostgreSQL slow_query_log (>100ms) |
+| `00005_phase5_indexes.sql` | ✅ Applied | idx_transactions_buyer_id/seller_id, idx_ledger_transaction_id, idx_bids_auction_id |
+
+### Frontend (Next.js 14) — DONE
+
+- 13+ routes implemented
+- `output: standalone` configured (Docker-ready)
+- Obsidian & Copper design system
+- API proxy rewrites to gateway configured
+
+### Infrastructure — DONE
+
+- Docker Compose: all 3 containers healthy (postgres, redis, gateway)
+- Health checks: `/health` wired to Railway health check config
+- GitHub Actions: `.github/workflows/test.yml` — test+build on every push, deploy on main
+- Dockerfile: `golang:1.23-alpine` builder → `alpine:3.19` runner
+
+### NOT YET BUILT (Architecturally Designed, Pending)
+
+| Feature | Location in CLAUDE.md | Priority |
+|---|---|---|
+| WebSocket / Centrifugo real-time bidding | Section 4 | High |
+| AI Vetting Pipeline (ai-vetting service) | Section 5 | High |
+| /auth/refresh endpoint | Section 9 | Medium |
+| /auth/logout endpoint | Section 9 | Medium |
+| Notification dispatch | Section 7 (Package 7) | Medium |
+| Full KYC flow (CNIC upload, NADRA mock) | Section 6 (Package 1) | Medium |
+| Penalty/suspension automation | Section 6 (Package 6) | Low |
+| Admin Maker-Checker | Section 6 (Package 6) | Low |
+| Settlement Receipt creation | Section 6 (Package 5) | Medium |
+| Goose migration runner | Section 13 | Low |
+| Withdrawal endpoint | Section 6 (Package 4) | Low |
+
+### Redis Namespaces in Use
+
+```
+active_sessions:{userId}     SET of active sessionIds
+otp:request:{phone}          INCR counter, TTL=1h (max 3 per hour)
+otp:verify:{phone}           SHA-256 hash of OTP, TTL=5min
+otp:attempts:{phone}         INCR failed verify counter, TTL=5min (max 5)
+```
+
+### Deployed Endpoints (all live at localhost:8080)
+
+```
+GET  /health                        Public — load balancer check
+GET  /readiness                     Internal — dependency check (DB + Redis)
+GET  /liveness                      Internal — heartbeat
+GET  /metrics                       Prometheus format
+
+POST /api/v1/auth/request-otp       Public
+POST /api/v1/auth/verify-otp        Public
+
+GET  /api/v1/listings               Public
+GET  /api/v1/listings/:id           Public
+GET  /api/v1/auctions/:id           Public
+GET  /api/v1/auctions/:id/bids      Public
+
+POST /api/v1/auctions/:id/bids      Protected (JWT)
+GET  /api/v1/wallet                 Protected (JWT)
+GET  /api/v1/transactions/:id       Protected (JWT)
+POST /api/v1/transactions/:id/disputes           Protected (JWT)
+POST /api/v1/transactions/:id/meetup/confirm     Protected (JWT)
+POST /api/v1/transactions/:id/qr/generate        Protected (JWT)
+POST /api/v1/transactions/:id/settle             Protected (JWT)
+GET  /api/v1/transactions/:id/ledger-chain       Protected (JWT)
+GET  /api/v1/disputes/:dispute_id   Protected (JWT)
+
+POST /api/v1/admin/wallets/fund     Protected (ADMIN role)
+GET  /api/v1/admin/risk-flags       Protected (ADMIN role)
+```
+
+---
+
+## 18. KNOWN CEP DEMO SCENARIOS
 
 The following scenarios must work end-to-end in the docker-compose offline environment:
 
@@ -1330,7 +1468,7 @@ Seller submits listing → Gate 1 Luhn passes → Gate 2 DIRBS returns REGISTERE
 
 ---
 
-## 16. DO NOT DO THESE THINGS
+## 19. DO NOT DO THESE THINGS
 
 - Never use floating point for any monetary value anywhere
 - Never write financial mutations outside of PostgreSQL transactions
