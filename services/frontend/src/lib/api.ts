@@ -41,6 +41,23 @@ export const api = {
       return apiFetch<ListingsResponse>(`/api/v1/listings${qs ? `?${qs}` : ''}`)
     },
     get: (id: string) => apiFetch<ListingDetail>(`/api/v1/listings/${id}`),
+
+    // Multipart form submission for new listing (photos + metadata)
+    create: (formData: FormData): Promise<{ listing_id: string }> => {
+      const token = getToken()
+      return fetch(`${BASE}/api/v1/listings`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
+        cache: 'no-store',
+      }).then(async res => {
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          throw new Error((body as { error?: { message?: string } })?.error?.message ?? `HTTP ${res.status}`)
+        }
+        return res.json() as Promise<{ listing_id: string }>
+      })
+    },
   },
 
   auctions: {
@@ -70,6 +87,14 @@ export const api = {
 
   wallet: {
     get: () => apiFetch<Wallet>('/api/v1/wallet'),
+  },
+
+  vetting: {
+    checkImei: (imei: string) =>
+      apiFetch<{ imei: string; valid: boolean; blacklisted: boolean; message: string }>(
+        '/api/v1/vetting/imei',
+        { method: 'POST', body: JSON.stringify({ imei }) }
+      ),
   },
 
   auth: {

@@ -47,7 +47,7 @@ export default function SellPage() {
           </p>
           <div className="flex items-center gap-3 mt-5 flex-wrap">
             <Link
-              href="/login"
+              href="/sell/create"
               className="inline-flex items-center gap-2 bg-copper text-white px-5 py-2.5 rounded-[9px] text-[13px] font-medium hover:bg-copper/90 transition-colors"
             >
               Start Listing
