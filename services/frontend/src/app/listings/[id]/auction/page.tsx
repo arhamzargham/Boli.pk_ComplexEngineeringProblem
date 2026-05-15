@@ -2,7 +2,8 @@
 
 import { Suspense, useState, useEffect, useCallback } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
-import { Smartphone, ArrowLeft, Wifi, WifiOff, ShieldCheck } from 'lucide-react'
+import { Smartphone, ArrowLeft, Wifi, WifiOff, ShieldCheck, Trophy, ArrowRight } from 'lucide-react'
+import Link from 'next/link'
 import VettingBadge from '@/components/ui/VettingBadge'
 import CountdownTimer from '@/components/auction/CountdownTimer'
 import BidHistoryRow from '@/components/auction/BidHistoryRow'
@@ -136,6 +137,14 @@ function AuctionRoomInner() {
   }
 
   const currentHighBid = auction.highest_bid_paisa ?? 0
+
+  // Detect if the current user is the winning bidder
+  const isWinner = authed &&
+    (auction.status === 'CLOSED_WITH_BIDS') &&
+    bids.some(b =>
+      (b.status === 'WINNING' || b.status === 'WON') &&
+      b.bidder_id === auth?.userId
+    )
 
   return (
     <div className="flex flex-col min-h-screen bg-cream">
@@ -294,6 +303,24 @@ function AuctionRoomInner() {
 
             {/* RIGHT COLUMN */}
             <div className="space-y-3 md:sticky md:top-[68px] self-start">
+
+              {/* Winner banner — shown when current user is the winning bidder */}
+              {isWinner && (
+                <div className="bg-copper/10 border-2 border-copper rounded-xl p-4 text-center">
+                  <Trophy size={28} className="text-copper mx-auto mb-2" strokeWidth={1.5} />
+                  <p className="font-serif text-[18px] text-text-primary">You won!</p>
+                  <p className="text-[11px] text-text-faint mt-1 mb-3">
+                    Your bid of {paisaToRs(currentHighBid)} was accepted. Escrow is active.
+                  </p>
+                  <Link
+                    href={`/auction/${auctionId}/won?bid_amount_paisa=${currentHighBid}&listing_id=${listingId}`}
+                    className="w-full inline-flex items-center justify-center gap-2 bg-copper text-white px-4 py-2.5 rounded-[9px] text-[13px] font-medium hover:bg-copper/90 transition-colors"
+                  >
+                    Claim Your Win
+                    <ArrowRight size={13} />
+                  </Link>
+                </div>
+              )}
 
               <BidPanel
                 auctionId={auctionId}

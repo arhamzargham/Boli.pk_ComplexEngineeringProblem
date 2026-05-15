@@ -83,6 +83,18 @@ export const api = {
         `/api/v1/transactions/${id}/qr/generate`,
         { method: 'POST' }
       ),
+
+    confirmMeetup: (id: string, body: { proposed_at: string; location: string; notes: string }) =>
+      apiFetch<{ ok: boolean }>(`/api/v1/transactions/${id}/meetup/confirm`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+
+    settle: (id: string, body: { qr_token: string }) =>
+      apiFetch<{ ok: boolean; receipt_hash?: string }>(`/api/v1/transactions/${id}/settle`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
   },
 
   wallet: {
