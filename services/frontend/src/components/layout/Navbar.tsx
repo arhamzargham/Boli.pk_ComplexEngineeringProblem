@@ -4,9 +4,11 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Menu, X } from 'lucide-react'
-import { getAuth, userInitials } from '@/lib/auth'
+import { getAuth } from '@/lib/auth'
 import { api } from '@/lib/api'
 import { paisaToRs } from '@/lib/formatters'
+import { NotificationBell } from '@/components/ui/NotificationBell'
+import { AvatarDropdown } from '@/components/layout/AvatarDropdown'
 import type { Wallet } from '@/types'
 
 interface NavbarProps {
@@ -92,17 +94,19 @@ export default function Navbar({ variant = 'main' }: NavbarProps) {
                   {paisaToRs(wallet.available_paisa)}
                 </span>
               )}
-              <div className="w-8 h-8 rounded-full bg-copper/15 border border-copper/30 flex items-center justify-center text-copper text-[11px] font-medium select-none">
-                {userInitials(auth.userId)}
-              </div>
+              <NotificationBell />
+              <AvatarDropdown />
             </>
           ) : mounted ? (
-            <Link
-              href="/login"
-              className="bg-copper text-white text-[12px] px-3.5 py-2 rounded-[9px] hover:bg-copper/90 transition-colors"
-            >
-              Login
-            </Link>
+            <>
+              <NotificationBell />
+              <Link
+                href="/login"
+                className="bg-copper text-white text-[12px] px-3.5 py-2 rounded-[9px] hover:bg-copper/90 transition-colors"
+              >
+                Login
+              </Link>
+            </>
           ) : (
             <div className="w-8 h-8 rounded-full bg-white/5 animate-pulse" />
           )}
@@ -136,9 +140,7 @@ export default function Navbar({ variant = 'main' }: NavbarProps) {
           <div className="pt-3">
             {mounted && auth ? (
               <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-full bg-copper/15 flex items-center justify-center text-copper text-[10px]">
-                  {userInitials(auth.userId)}
-                </div>
+                <AvatarDropdown />
                 {wallet && (
                   <span className="text-[12px] text-copper font-mono">
                     {paisaToRs(wallet.available_paisa)}

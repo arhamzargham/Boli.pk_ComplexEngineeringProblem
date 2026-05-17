@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import { DM_Serif_Display, DM_Sans, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
+import { NotificationProvider } from '@/lib/notifications'
+import { ToastManager } from '@/components/ui/ToastManager'
 
 const dmSerifDisplay = DM_Serif_Display({
   weight: '400',
@@ -34,7 +36,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${dmSerifDisplay.variable} ${dmSans.variable} ${jetbrainsMono.variable}`}
     >
       <body className="font-sans bg-cream text-text-primary antialiased min-h-screen">
-        {children}
+        <NotificationProvider>
+          {children}
+          <ToastManager />
+        </NotificationProvider>
       </body>
     </html>
   )

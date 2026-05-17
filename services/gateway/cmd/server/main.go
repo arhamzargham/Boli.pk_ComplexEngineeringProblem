@@ -44,7 +44,7 @@ func main() {
 	walletH  := wallet.NewHandler(db)
 	txH      := transaction.NewHandler(db)
 	disputeH := dispute.NewHandler(db)
-	adminH   := admin.NewHandler(db)
+	adminH   := admin.NewHandler(db, rdb)
 	authMW   := middleware.NewAuth(rdb, jwtSecret)
 
 	// ── Router ────────────────────────────────────────────────
@@ -80,10 +80,16 @@ func main() {
 	auctionAuth.Use(authMW.RequireAuth())
 	auctionAuth.POST("/:id/bids", auctionH.PlaceBid)
 
+	// ── Users (protected) ─────────────────────────────────────
+	usersG := v1.Group("/users")
+	usersG.Use(authMW.RequireAuth())
+	usersG.GET("/me", authH.GetMe)
+
 	// ── Wallet (protected) ────────────────────────────────────
 	walletG := v1.Group("/wallet")
 	walletG.Use(authMW.RequireAuth())
-	walletG.GET("", walletH.Get)
+	walletG.GET("",          walletH.Get)
+	walletG.POST("/withdraw", walletH.Withdraw)
 
 	// ── Transactions (protected — buyer or seller only) ────────
 	txG := v1.Group("/transactions")
@@ -100,6 +106,10 @@ func main() {
 	disputeG.Use(authMW.RequireAuth())
 	disputeG.GET("/:dispute_id", disputeH.GetDispute)
 
+	// ── Admin portal login (public — no JWT required) ────────
+	adminPublicG := v1.Group("/admin/auth")
+	adminPublicG.POST("/login", adminH.AdminLogin)
+
 	// ── Admin (protected — ADMIN role only) ───────────────────
 	adminG := v1.Group("/admin")
 	adminG.Use(authMW.RequireAuth(), middleware.RequireRole("ADMIN"))
@@ -109,6 +119,19 @@ func main() {
 	adminG.PATCH("/listings/:id",        adminH.UpdateListingStatus)
 	adminG.GET("/users",                 adminH.ListUsers)
 	adminG.PATCH("/users/:id",           adminH.UpdateUserStatus)
+	// Admin portal extended routes
+	adminG.GET("/admins",                adminH.ListAdmins)
+	adminG.POST("/admins",               adminH.CreateAdmin)
+	adminG.GET("/dashboard/stats",       adminH.DashboardStats)
+	adminG.GET("/dashboard/activity",    adminH.DashboardActivity)
+	adminG.GET("/kyc-queue",             adminH.KYCQueue)
+	adminG.GET("/transactions",          adminH.ListTransactions)
+	adminG.GET("/disputes",              adminH.ListDisputes)
+	adminG.POST("/disputes/:id/resolve", adminH.ResolveDispute)
+	adminG.GET("/wallets",               adminH.ListWallets)
+	adminG.GET("/analytics/revenue",     adminH.AnalyticsRevenue)
+	adminG.GET("/analytics/users",       adminH.AnalyticsUsers)
+	adminG.GET("/analytics/listings",    adminH.AnalyticsListings)
 
 	zlog.Logger.Info("boli.pk gateway listening on :8080")
 	if err := r.Run(":8080"); err != nil {

@@ -33,10 +33,16 @@ services:
       POSTGRES_PASSWORD: boli_dev_secret
     volumes:
       # initdb scripts run in alphabetical order on first start only.
-      # 01 = schema (DDL, triggers, constraints)
-      # 02 = seed  (demo data for all 6 CEP scenarios)
       - ./infrastructure/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
       - ./infrastructure/postgres/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+      - ./infrastructure/postgres/phase4.sql:/docker-entrypoint-initdb.d/03-phase4.sql:ro
+      - ./infrastructure/postgres/phase5_delta.sql:/docker-entrypoint-initdb.d/04-phase5-delta.sql:ro
+      - ./infrastructure/postgres/phase5_epsilon.sql:/docker-entrypoint-initdb.d/05-phase5-epsilon.sql:ro
+      - ./infrastructure/postgres/db/migrations/00005_phase5_indexes.sql:/docker-entrypoint-initdb.d/06-indexes.sql:ro
+      - ./infrastructure/postgres/db/migrations/00006_add_phone_to_users.sql:/docker-entrypoint-initdb.d/07-phone.sql:ro
+      - ./infrastructure/postgres/db/migrations/00007_email_auth_full_profile.sql:/docker-entrypoint-initdb.d/08-email-auth.sql:ro
+      - ./infrastructure/postgres/seed_email_auth.sql:/docker-entrypoint-initdb.d/09-seed-email.sql:ro
+      - ./infrastructure/postgres/seed_admin_portal.sql:/docker-entrypoint-initdb.d/10-admin-portal.sql:ro
       - postgres-data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
@@ -90,8 +96,10 @@ services:
       GIN_MODE: "debug"
       # Centrifugo real-time pub/sub
       CENTRIFUGO_API_URL: "http://centrifugo:8000/api"
-      # SendGrid email OTP delivery (leave blank to use console mock for offline CEP demo)
-      SENDGRID_API_KEY: ""
+      # SendGrid email OTP delivery
+      SENDGRID_API_KEY: "${SENDGRID_API_KEY:-}"
+      SENDGRID_FROM_EMAIL: "arham.zargham19@gmail.com"
+      SENDGRID_FROM_NAME: "Boli.pk"
       CENTRIFUGO_API_KEY: "boli-api-key"
     ports:
       - "8080:8080"
@@ -101,7 +109,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health | grep -q '\"status\":\"ok\"'"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -152,6 +160,23 @@ services:
       NODE_ENV: "production"
     ports:
       - "3000:3000"
+    depends_on:
+      gateway:
+        condition: service_healthy
+
+  # ── Admin Portal — Next.js 14 on port 3001 ───────────────────
+  admin-portal:
+    build:
+      context: ./services/admin-portal
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks:
+      - boli-network
+    environment:
+      API_URL: "http://gateway:8080"
+      NODE_ENV: "production"
+    ports:
+      - "3001:3001"
     depends_on:
       gateway:
         condition: service_healthy

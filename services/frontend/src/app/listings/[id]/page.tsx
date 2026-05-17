@@ -71,9 +71,6 @@ export default async function ListingDetailPage({ params }: Props) {
                     src={listing.images[0].storage_url}
                     alt={`${listing.make} ${listing.model}`}
                     className="h-full w-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none'
-                    }}
                   />
                 ) : null}
                 <div className="flex flex-col items-center gap-1 text-copper/40">

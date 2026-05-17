@@ -34,6 +34,50 @@ export function isAuthenticated(): boolean {
   return !!getAuth()
 }
 
+export function logout(): void {
+  if (typeof window === 'undefined') return
+  clearAuth()
+  document.cookie = 'boli_token=; path=/; max-age=0; SameSite=Lax'
+  window.location.href = '/login'
+}
+
+export function getToken(): string | null {
+  if (typeof window === 'undefined') return null
+  return localStorage.getItem(KEYS.token)
+}
+
+export function getUserId(): string | null {
+  if (typeof window === 'undefined') return null
+  return localStorage.getItem(KEYS.userId)
+}
+
+export function getRole(): 'BUYER' | 'SELLER' | 'ADMIN' | null {
+  if (typeof window === 'undefined') return null
+  return localStorage.getItem(KEYS.role) as 'BUYER' | 'SELLER' | 'ADMIN' | null
+}
+
+export function getAuthHeaders(): Record<string, string> {
+  const auth = getAuth()
+  return auth?.token ? { Authorization: `Bearer ${auth.token}` } : {}
+}
+
+export function getTokenPayload(): Record<string, unknown> | null {
+  const auth = getAuth()
+  if (!auth?.token) return null
+  try {
+    const payload = auth.token.split('.')[1]
+    return JSON.parse(atob(payload)) as Record<string, unknown>
+  } catch {
+    return null
+  }
+}
+
+export function isTokenExpired(): boolean {
+  const payload = getTokenPayload()
+  if (!payload || typeof payload.exp !== 'number') return true
+  return Date.now() / 1000 > payload.exp
+}
+
 /** User initials for avatar display */
 export function userInitials(userId: string | null): string {
   if (!userId) return '?'

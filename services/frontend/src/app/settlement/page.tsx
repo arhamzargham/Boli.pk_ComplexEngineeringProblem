@@ -1,14 +1,30 @@
+'use client'
+
+import { Suspense, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { CheckCircle2, XCircle } from 'lucide-react'
+import { useNotifications } from '@/lib/notifications'
 
-interface Props {
-  searchParams: { transaction_id?: string; status?: string }
-}
+function SettlementContent() {
+  const searchParams = useSearchParams()
+  const txId      = searchParams.get('transaction_id') ?? ''
+  const isSuccess = searchParams.get('status') === 'success'
 
-export default function SettlementPage({ searchParams }: Props) {
-  const txId   = searchParams.transaction_id ?? ''
-  const status = searchParams.status ?? ''
-  const isSuccess = status === 'success'
+  const { addNotification } = useNotifications()
+
+  useEffect(() => {
+    if (isSuccess && txId) {
+      addNotification({
+        type:           'settled',
+        title:          'Settlement complete',
+        message:        'Escrow funds have been released to the seller.',
+        transaction_id: txId,
+        href:           `/transactions/${txId}`,
+      })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSuccess, txId])
 
   return (
     <div className="min-h-screen bg-cream flex flex-col items-center justify-center px-4">
@@ -64,5 +80,17 @@ export default function SettlementPage({ searchParams }: Props) {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function SettlementPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-cream flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-2 border-copper border-t-transparent animate-spin" />
+      </div>
+    }>
+      <SettlementContent />
+    </Suspense>
   )
 }

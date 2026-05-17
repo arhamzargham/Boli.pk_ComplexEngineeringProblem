@@ -9,11 +9,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"net/http"
 	"os"
-	"time"
-	mathrand "math/rand"
 	"regexp"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -67,6 +67,15 @@ type verifyReq struct {
 	OTPCode string `json:"otp_code" binding:"required"`
 }
 
+// generateOTP returns a cryptographically random 6-digit string (000000–999999).
+func generateOTP() (string, error) {
+	n, err := rand.Int(rand.Reader, big.NewInt(1_000_000))
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%06d", n.Int64()), nil
+}
+
 // ─── POST /api/v1/auth/request-otp ──────────────────────────────────────────
 
 // RequestOTP sends a 6-digit OTP to the user's email address.
@@ -95,9 +104,12 @@ func (h *Handler) RequestOTP(c *gin.Context) {
 		return
 	}
 
-	// Generate 6-digit OTP and store its hash in Redis (plaintext never persisted)
-	otpVal := mathrand.Intn(900000) + 100000
-	otpStr := fmt.Sprintf("%06d", otpVal)
+	// Generate cryptographically random 6-digit OTP (plaintext never persisted)
+	otpStr, err := generateOTP()
+	if err != nil {
+		apiErr(c, http.StatusInternalServerError, "OTP_GEN_ERROR", "could not generate OTP")
+		return
+	}
 	hashVal := hashStr(otpStr + string(h.jwtSecret))
 
 	verifyKey := "otp:verify:" + req.Email
@@ -296,6 +308,52 @@ func (h *Handler) VerifyOTP(c *gin.Context) {
 	})
 }
 
+// ─── GET /api/v1/users/me ────────────────────────────────────────────────────
+
+// GetMe returns the authenticated user's profile from the database.
+func (h *Handler) GetMe(c *gin.Context) {
+	userID := c.GetString("user_id")
+
+	var (
+		uid           string
+		email         string
+		phone         string
+		kycTier       string
+		accountStatus string
+		trustScore    int
+		role          string
+		createdAt     time.Time
+	)
+
+	err := h.db.QueryRowContext(c.Request.Context(), `
+		SELECT user_id::text,
+		       COALESCE(email, '')          AS email,
+		       COALESCE(phone, '')          AS phone,
+		       kyc_tier::text,
+		       account_status::text,
+		       trust_score,
+		       role::text,
+		       created_at
+		FROM users
+		WHERE user_id = $1 AND deleted_at IS NULL
+	`, userID).Scan(&uid, &email, &phone, &kycTier, &accountStatus, &trustScore, &role, &createdAt)
+	if err != nil {
+		apiErr(c, http.StatusNotFound, "USER_NOT_FOUND", "user not found")
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"user_id":        uid,
+		"email":          email,
+		"phone":          phone,
+		"kyc_tier":       kycTier,
+		"account_status": accountStatus,
+		"trust_score":    trustScore,
+		"role":           role,
+		"created_at":     createdAt,
+	})
+}
+
 // ─── sendEmail ────────────────────────────────────────────────────────────────
 
 // sendEmail delivers an HTML email via the SendGrid v3 API.
@@ -309,11 +367,20 @@ func (h *Handler) sendEmail(ctx context.Context, toEmail, subject, htmlBody stri
 		return nil
 	}
 
+	fromEmail := os.Getenv("SENDGRID_FROM_EMAIL")
+	fromName := os.Getenv("SENDGRID_FROM_NAME")
+	if fromEmail == "" {
+		fromEmail = "noreply@boli.pk"
+	}
+	if fromName == "" {
+		fromName = "Boli.pk"
+	}
+
 	payload := map[string]interface{}{
 		"personalizations": []map[string]interface{}{
 			{"to": []map[string]string{{"email": toEmail}}},
 		},
-		"from":    map[string]string{"email": "noreply@boli.pk", "name": "Boli.pk"},
+		"from":    map[string]string{"email": fromEmail, "name": fromName},
 		"subject": subject,
 		"content": []map[string]string{{"type": "text/html", "value": htmlBody}},
 	}

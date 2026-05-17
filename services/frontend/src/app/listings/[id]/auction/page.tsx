@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useState, useEffect, useCallback } from 'react'
+import { Suspense, useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { Smartphone, ArrowLeft, Wifi, WifiOff, ShieldCheck, Trophy, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
@@ -12,6 +12,7 @@ import { api } from '@/lib/api'
 import { paisaToRs, conditionLabel } from '@/lib/formatters'
 import { getAuth, isAuthenticated } from '@/lib/auth'
 import { useCentrifugo } from '@/hooks/useCentrifugo'
+import { useNotifications } from '@/lib/notifications'
 import type { ListingDetail, Auction, Bid } from '@/types'
 
 function AuctionRoomInner() {
@@ -33,6 +34,8 @@ function AuctionRoomInner() {
 
   const auth = getAuth()
   const authed = isAuthenticated()
+  const { addNotification } = useNotifications()
+  const winnerFiredRef = useRef(false)
 
   const fetchAuctionData = useCallback(async () => {
     try {
@@ -88,18 +91,26 @@ function AuctionRoomInner() {
     auctionId,
     onBid: (event) => {
       setBids(prev => [{
-        bid_id:          `ws-${Date.now()}`,
-        auction_id:      event.auction_id,
-        bidder_id:       event.bidder_id,
+        bid_id:           `ws-${Date.now()}`,
+        auction_id:       event.auction_id,
+        bidder_id:        event.bidder_id,
         bid_amount_paisa: event.amount_paisa,
-        status:          'ACTIVE' as const,
-        placed_at:       new Date().toISOString(),
+        status:           'ACTIVE' as const,
+        placed_at:        new Date().toISOString(),
       }, ...prev])
       setAuction(prev =>
         prev && event.amount_paisa > (prev.highest_bid_paisa ?? 0)
           ? { ...prev, highest_bid_paisa: event.amount_paisa, total_bid_count: prev.total_bid_count + 1 }
           : prev
       )
+      addNotification({
+        type:       'bid',
+        title:      'New bid placed',
+        message:    'Someone just bid on this auction',
+        amount_paisa: event.amount_paisa,
+        auction_id: event.auction_id,
+        href:       `/listings/${listingId}/auction?auctionId=${event.auction_id}`,
+      })
     },
   })
 
@@ -109,6 +120,29 @@ function AuctionRoomInner() {
       api.wallet.get().then(w => setAvailablePaisa(w.available_paisa)).catch(() => {})
     }
   }, [fetchAuctionData, authed])
+
+  const currentHighBid = auction?.highest_bid_paisa ?? 0
+
+  // Winner detection — fire notification once when this user wins
+  const isWinner = authed &&
+    auction?.status === 'CLOSED_WITH_BIDS' &&
+    bids.some(b =>
+      (b.status === 'WINNING' || b.status === 'WON') &&
+      b.bidder_id === auth?.userId
+    )
+
+  useEffect(() => {
+    if (isWinner && !winnerFiredRef.current) {
+      winnerFiredRef.current = true
+      addNotification({
+        type:        'won',
+        title:       'You won the auction!',
+        message:     'Your bid has been accepted. Coordinate a meetup to complete the sale.',
+        amount_paisa: currentHighBid,
+        href:        `/auction/${auctionId}/won?listing_id=${listingId}&bid_amount_paisa=${currentHighBid}`,
+      })
+    }
+  }, [isWinner, addNotification, currentHighBid, auctionId, listingId])
 
   if (loading) {
     return (
@@ -135,16 +169,6 @@ function AuctionRoomInner() {
       </div>
     )
   }
-
-  const currentHighBid = auction.highest_bid_paisa ?? 0
-
-  // Detect if the current user is the winning bidder
-  const isWinner = authed &&
-    (auction.status === 'CLOSED_WITH_BIDS') &&
-    bids.some(b =>
-      (b.status === 'WINNING' || b.status === 'WON') &&
-      b.bidder_id === auth?.userId
-    )
 
   return (
     <div className="flex flex-col min-h-screen bg-cream">

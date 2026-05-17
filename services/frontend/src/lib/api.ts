@@ -1,4 +1,4 @@
-import type { AuthResponse, ListingDetail, ListingsResponse, Auction, Wallet, BidResponse, BidsListResponse, Transaction, AdminListingRow, AdminUserRow } from '@/types'
+import type { AuthResponse, ListingDetail, ListingsResponse, Auction, Wallet, BidResponse, BidsListResponse, Transaction, AdminListingRow, AdminUserRow, Dispute } from '@/types'
 
 // Server components (SSR): direct URL. Client components: proxy via Next.js rewrite.
 const BASE =
@@ -9,6 +9,13 @@ const BASE =
 function getToken(): string | null {
   if (typeof window === 'undefined') return null
   return localStorage.getItem('boli_token')
+}
+
+function uuid4(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16)
+  })
 }
 
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -70,7 +77,10 @@ export const api = {
     placeBid: (auctionId: string, amountPaisa: number) =>
       apiFetch<BidResponse>(`/api/v1/auctions/${auctionId}/bids`, {
         method: 'POST',
-        body: JSON.stringify({ bid_amount_paisa: amountPaisa }),
+        body: JSON.stringify({
+          amount_paisa:    amountPaisa,
+          idempotency_key: uuid4(),
+        }),
       }),
   },
 
@@ -95,10 +105,31 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(body),
       }),
+
+    raiseDispute: (txId: string, payload: { reason: string; description: string }) =>
+      apiFetch<{ dispute_id: string }>(`/api/v1/transactions/${txId}/disputes`, {
+        method: 'POST',
+        body: JSON.stringify({
+          transaction_id: txId,
+          reason:         payload.reason,
+          evidence_text:  payload.description,
+        }),
+      }),
+  },
+
+  disputes: {
+    get: (disputeId: string) =>
+      apiFetch<Dispute>(`/api/v1/disputes/${disputeId}`),
   },
 
   wallet: {
     get: () => apiFetch<Wallet>('/api/v1/wallet'),
+
+    withdraw: (payload: { amount_paisa: number; bank_name: string; account_title: string; iban: string }) =>
+      apiFetch<{ reference_id: string }>('/api/v1/wallet/withdraw', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
   },
 
   vetting: {
@@ -120,6 +151,20 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(payload),
       }),
+  },
+
+  user: {
+    profile: () =>
+      apiFetch<{
+        user_id: string
+        email: string
+        phone: string
+        kyc_tier: string
+        account_status: string
+        trust_score: number
+        role: string
+        created_at: string
+      }>('/api/v1/users/me'),
   },
 
   admin: {

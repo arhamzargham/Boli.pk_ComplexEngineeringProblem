@@ -1,7 +1,9 @@
 package wallet
 
 import (
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"net/http"
 	"time"
 
@@ -61,6 +63,105 @@ func (h *Handler) Get(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, w)
+}
+
+// POST /api/v1/wallet/withdraw
+// CEP stub — returns a reference ID. Production wires to bank transfer API.
+func (h *Handler) Withdraw(c *gin.Context) {
+	var req struct {
+		AmountPaisa  int64  `json:"amount_paisa"   binding:"required,min=1"`
+		BankName     string `json:"bank_name"      binding:"required"`
+		AccountTitle string `json:"account_title"  binding:"required"`
+		IBAN         string `json:"iban"           binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		apiErr(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+		return
+	}
+
+	userID := c.GetString("user_id")
+	ctx    := c.Request.Context()
+
+	// Check sufficient balance
+	var available int64
+	err := h.db.QueryRowContext(ctx,
+		`SELECT available_paisa FROM wallets WHERE user_id = $1::uuid`, userID,
+	).Scan(&available)
+	if err != nil {
+		apiErr(c, http.StatusInternalServerError, "DB_ERROR", "could not fetch wallet")
+		return
+	}
+	if available < req.AmountPaisa {
+		apiErr(c, http.StatusPaymentRequired, "INSUFFICIENT_FUNDS", "available balance is insufficient")
+		return
+	}
+
+	// Deduct balance and create ledger entry in a single transaction
+	tx, err := h.db.BeginTx(ctx, nil)
+	if err != nil {
+		apiErr(c, http.StatusInternalServerError, "DB_ERROR", "could not start transaction")
+		return
+	}
+	defer tx.Rollback()
+
+	var walletID string
+	err = tx.QueryRowContext(ctx, `
+		UPDATE wallets
+		SET available_paisa      = available_paisa - $1,
+		    updated_at           = NOW()
+		WHERE user_id = $2::uuid
+		RETURNING wallet_id`,
+		req.AmountPaisa, userID,
+	).Scan(&walletID)
+	if err != nil {
+		apiErr(c, http.StatusInternalServerError, "DB_ERROR", "could not update wallet")
+		return
+	}
+
+	refID := newWithdrawalRef()
+	_, err = tx.ExecContext(ctx, `
+		INSERT INTO ledger_entries
+		    (transaction_id, wallet_id, tax_account_id,
+		     amount_paisa, entry_type, purpose,
+		     previous_hash_sha256, current_hash_sha256,
+		     metadata, created_at)
+		VALUES
+		    (NULL, $1::uuid, NULL,
+		     $2, 'DEBIT'::ledger_entry_type, 'WITHDRAWAL'::ledger_purpose,
+		     $3, $3,
+		     jsonb_build_object(
+		       'reference_id', $4::text,
+		       'bank_name',    $5::text,
+		       'iban_tail',    $6::text
+		     ),
+		     NOW())`,
+		walletID, req.AmountPaisa,
+		"0000000000000000000000000000000000000000000000000000000000000000",
+		refID, req.BankName,
+		req.IBAN[len(req.IBAN)-4:],
+	)
+	if err != nil {
+		apiErr(c, http.StatusInternalServerError, "LEDGER_ERROR", "could not write ledger entry")
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		apiErr(c, http.StatusInternalServerError, "COMMIT_ERROR", "could not commit withdrawal")
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"reference_id": refID,
+		"message":      "Withdrawal requested — funds will transfer within 1–2 business days",
+	})
+}
+
+func newWithdrawalRef() string {
+	b := make([]byte, 8)
+	if _, err := rand.Read(b); err != nil {
+		return "WD-" + time.Now().Format("20060102150405")
+	}
+	return "WD-" + hex.EncodeToString(b)
 }
 
 func apiErr(c *gin.Context, status int, code, message string) {

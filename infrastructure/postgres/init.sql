@@ -98,6 +98,7 @@ CREATE TYPE admin_alert_priority          AS ENUM ('HIGH', 'CRITICAL');
 
 CREATE TABLE users (
     user_id                   UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    phone                     VARCHAR(15) NOT NULL UNIQUE,
     cnic_encrypted            BYTEA,                                    -- AES-256-GCM, KMS-managed; null after anonymisation
     ntn_encrypted             BYTEA,                                    -- nullable, AES-256-GCM
     kyc_tier                  kyc_tier    NOT NULL DEFAULT 'BASIC',

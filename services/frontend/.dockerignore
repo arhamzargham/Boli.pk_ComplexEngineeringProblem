@@ -1,0 +1,8 @@
+node_modules
+.next
+.git
+*.test.ts
+*.test.tsx
+__tests__
+coverage
+.env*.local

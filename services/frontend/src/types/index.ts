@@ -173,3 +173,16 @@ export interface AdminUserRow {
   total_listings: number
   total_transactions: number
 }
+
+export interface Dispute {
+  dispute_id: string
+  transaction_id: string
+  raised_by: 'BUYER' | 'SELLER' | 'SYSTEM'
+  reason: string
+  description: string
+  status: 'OPEN' | 'UNDER_REVIEW' | 'RESOLVED' | 'DISMISSED'
+  resolution_note?: string
+  winning_bid_paisa?: number
+  created_at: string
+  updated_at: string
+}

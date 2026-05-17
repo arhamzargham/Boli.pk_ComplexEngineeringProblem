@@ -1,5 +1,5 @@
 # ── Stage 1: build ──────────────────────────────────────────────
-FROM golang:1.23-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 RUN apk add --no-cache git ca-certificates
 
@@ -14,7 +14,7 @@ RUN go mod download 2>/dev/null; true
 # Copy source and build.
 # go mod tidy re-resolves anything missing after go mod download.
 COPY . .
-RUN go mod tidy && \
+RUN  \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build -ldflags="-w -s" -o /gateway ./cmd/server
 

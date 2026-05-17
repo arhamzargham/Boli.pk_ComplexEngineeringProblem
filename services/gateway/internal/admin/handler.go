@@ -9,14 +9,22 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 )
 
 // Handler provides admin-only endpoints.
 type Handler struct {
-	db *sql.DB
+	db  *sql.DB
+	rdb *redis.Client
 }
 
-func NewHandler(db *sql.DB) *Handler { return &Handler{db: db} }
+func NewHandler(db *sql.DB, rdb ...*redis.Client) *Handler {
+	h := &Handler{db: db}
+	if len(rdb) > 0 {
+		h.rdb = rdb[0]
+	}
+	return h
+}
 
 // ─── POST /api/v1/admin/wallets/fund ────────────────────────────────────────
 // CEP replacement for payment gateway (CLAUDE.md Gap 8).
@@ -232,10 +240,13 @@ func (h *Handler) UpdateListingStatus(c *gin.Context) {
 
 type adminUserView struct {
 	UserID            string    `json:"user_id"`
+	Email             string    `json:"email"`
 	Phone             string    `json:"phone"`
 	Role              string    `json:"role"`
 	KycTier           string    `json:"kyc_tier"`
+	AccountStatus     string    `json:"account_status"`
 	IsSuspended       bool      `json:"is_suspended"`
+	TrustScore        int       `json:"trust_score"`
 	CreatedAt         time.Time `json:"created_at"`
 	TotalListings     int       `json:"total_listings"`
 	TotalTransactions int       `json:"total_transactions"`
@@ -245,8 +256,11 @@ func (h *Handler) ListUsers(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	rows, err := h.db.QueryContext(ctx, `
-		SELECT user_id, role::text, kyc_tier::text, account_status::text,
-		       created_at, active_listing_count
+		SELECT user_id::text,
+		       COALESCE(email, ''),
+		       COALESCE(phone, ''),
+		       role::text, kyc_tier::text, account_status::text,
+		       trust_score, active_listing_count, created_at
 		FROM users
 		WHERE deleted_at IS NULL
 		ORDER BY created_at DESC LIMIT 50`)
@@ -259,17 +273,17 @@ func (h *Handler) ListUsers(c *gin.Context) {
 	var users []adminUserView
 	for rows.Next() {
 		var u adminUserView
-		var accountStatus string
-		var totalListings  int
+		var totalListings int
 
 		if err := rows.Scan(
-			&u.UserID, &u.Role, &u.KycTier, &accountStatus,
-			&u.CreatedAt, &totalListings,
+			&u.UserID, &u.Email, &u.Phone,
+			&u.Role, &u.KycTier, &u.AccountStatus,
+			&u.TrustScore, &totalListings, &u.CreatedAt,
 		); err != nil {
 			apiErr(c, http.StatusInternalServerError, "SCAN_ERROR", "could not read user row")
 			return
 		}
-		u.IsSuspended  = accountStatus == "SELLER_SUSPENDED" || accountStatus == "PERMANENTLY_BANNED"
+		u.IsSuspended  = u.AccountStatus == "SELLER_SUSPENDED" || u.AccountStatus == "PERMANENTLY_BANNED"
 		u.TotalListings = totalListings
 		users = append(users, u)
 	}
@@ -295,21 +309,30 @@ func (h *Handler) UpdateUserStatus(c *gin.Context) {
 		return
 	}
 
-	var accountStatus string
+	var err error
 	switch req.KycStatus {
 	case "verified":
-		accountStatus = "FULL_ACTIVE"
+		// KYC approve — upgrade tier AND account status
+		_, err = h.db.ExecContext(ctx, `
+			UPDATE users
+			SET kyc_tier      = 'FULL'::kyc_tier,
+			    account_status = 'FULL_ACTIVE'::account_status
+			WHERE user_id = $1::uuid AND deleted_at IS NULL`, id)
 	case "pending":
-		accountStatus = "PARTIAL_ACTIVE"
+		_, err = h.db.ExecContext(ctx, `
+			UPDATE users
+			SET account_status = 'PARTIAL_ACTIVE'::account_status
+			WHERE user_id = $1::uuid AND deleted_at IS NULL`, id)
 	case "rejected":
-		accountStatus = "PERMANENTLY_BANNED"
+		_, err = h.db.ExecContext(ctx, `
+			UPDATE users
+			SET account_status = 'PERMANENTLY_BANNED'::account_status
+			WHERE user_id = $1::uuid AND deleted_at IS NULL`, id)
 	default:
-		accountStatus = req.KycStatus
+		apiErr(c, http.StatusBadRequest, "INVALID_STATUS", "kyc_status must be verified|pending|rejected")
+		return
 	}
 
-	_, err := h.db.ExecContext(ctx,
-		`UPDATE users SET account_status = $1::account_status WHERE user_id = $2::uuid`,
-		accountStatus, id)
 	if err != nil {
 		apiErr(c, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("could not update user: %v", err))
 		return

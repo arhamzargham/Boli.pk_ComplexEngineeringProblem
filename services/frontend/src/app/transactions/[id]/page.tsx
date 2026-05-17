@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ShieldCheck, CheckCircle2, Circle } from 'lucide-react'
+import { ShieldCheck, CheckCircle2, Circle, AlertTriangle } from 'lucide-react'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import StatsBar from '@/components/layout/StatsBar'
@@ -173,6 +173,19 @@ export default function TransactionDetailPage() {
             <div className="bg-copper-light border border-copper-border rounded-xl p-3 flex gap-2">
               <ShieldCheck size={13} className="text-copper mt-0.5 flex-shrink-0" />
               <p className="text-[11px] text-obs">Funds in escrow · Released at QR scan meetup</p>
+            </div>
+          )}
+
+          {/* Actions */}
+          {!isSettled && !isCancelled && (
+            <div className="pb-2">
+              <Link
+                href={`/disputes/raise?transaction_id=${id}`}
+                className="flex items-center gap-2 w-full border border-danger/30 text-danger px-4 py-3 rounded-[9px] text-[13px] hover:bg-danger/5 transition-colors"
+              >
+                <AlertTriangle size={14} />
+                Raise Dispute
+              </Link>
             </div>
           )}
         </div>

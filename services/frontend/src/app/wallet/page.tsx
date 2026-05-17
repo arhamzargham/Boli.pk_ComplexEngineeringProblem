@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { ArrowUpRight } from 'lucide-react'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import StatsBar from '@/components/layout/StatsBar'
@@ -101,10 +102,23 @@ export default function WalletPage() {
               <p className="text-[13px] font-medium">Top Up Wallet</p>
               <p className="text-[10px] text-white/50 mt-0.5">Via Raast · JazzCash · Easypaisa</p>
             </button>
-            <button className="bg-surface border border-border rounded-xl p-3.5 text-left hover:bg-cream transition-colors">
-              <p className="text-[13px] font-medium text-text-primary">Withdraw Funds</p>
-              <p className="text-[10px] text-text-faint mt-0.5">Min Rs. 200 · To IBAN on file</p>
-            </button>
+            {wallet && wallet.available_paisa > 0 ? (
+              <Link
+                href="/wallet/withdraw"
+                className="bg-surface border border-border rounded-xl p-3.5 text-left hover:bg-cream transition-colors block"
+              >
+                <div className="flex items-center gap-1">
+                  <p className="text-[13px] font-medium text-text-primary">Withdraw Funds</p>
+                  <ArrowUpRight size={12} className="text-text-faint" />
+                </div>
+                <p className="text-[10px] text-text-faint mt-0.5">Min Rs. 500 · 1–2 business days</p>
+              </Link>
+            ) : (
+              <div className="bg-surface border border-border rounded-xl p-3.5 text-left opacity-50">
+                <p className="text-[13px] font-medium text-text-primary">Withdraw Funds</p>
+                <p className="text-[10px] text-text-faint mt-0.5">No available balance</p>
+              </div>
+            )}
           </div>
 
           {/* Daily exposure */}
